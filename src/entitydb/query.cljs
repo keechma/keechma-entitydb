@@ -40,7 +40,8 @@
           current)
          
          :else
-         (let [resolved (resolve-relation store (get current current-iter) relation queries {:iter-path rest-iter-path :path (conj path current-iter)})]
+         (let [cursor' {:iter-path rest-iter-path :path (conj path current-iter)}
+               resolved (resolve-relation store (get current current-iter) relation queries cursor')]
            (if resolved (assoc current current-iter resolved) current)))))))
 
 (defmulti resolve-query (fn [store entity query parent-queries] (::type query)))
@@ -48,12 +49,12 @@
 (defmethod resolve-query :default [_ entity _ _] entity)
 
 (defmethod resolve-query :include [store entity query parent-queries]
-  (let [relation (get-in store [:entitydb/db :entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
+  (let [relation (get-in store [:entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
     (resolve-relation store entity relation (::subquery query))))
 
 (defmethod resolve-query :recur-on [store entity query parent-queries]
   (if (pos? (::recur-limit query))
-    (let [relation (get-in store [:entitydb/db :entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
+    (let [relation (get-in store [:entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
       (resolve-relation store entity relation (map (fn [q] (if (= (:recur-on (::type q))) (update q ::recur-limit dec) q)) parent-queries)))
     entity))
 
@@ -108,5 +109,5 @@
 (defn get-by-id 
   ([store entity-type id] (get-by-id store entity-type id nil))
   ([store entity-type id queries]
-   (let [entity (get-in store [:entitydb/db :entitydb/store entity-type id])]
+   (let [entity (get-in store [:entitydb/store entity-type id])]
      (resolve-queries store entity queries))))
