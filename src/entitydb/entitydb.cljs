@@ -151,6 +151,7 @@
 (defn remove-invalid-reverse-relations [store entity]
   (let [entity-type (:entitydb/type entity)
         entity-id (:entitydb/id entity)
+        entity-ident (entity->entity-ident entity)
         entity-relations (get-in store [:entitydb/schema entity-type :entitydb/relations])
         entity-update-keys (set (keys entity))
         entity-invalid-relations 
@@ -163,13 +164,13 @@
          entity-relations)]
     (reduce
      (fn [store invalid-relation]
-       (let [related (get-in store [:entitydb/relations entity-type entity-id invalid-relation])]
+       (let [related-entity-idents (vals (get-in store [:entitydb/relations entity-ident invalid-relation]))]
          (-> (reduce
-              (fn [store r]
-                (dissoc-in store [:entitydb.relations/reverse (:type r) (:id r) entity-type invalid-relation entity-id]))
+              (fn [store related-entity-ident]
+                (dissoc-in store [:entitydb.relations/reverse related-entity-ident entity-type invalid-relation entity-id]))
               store
-              related)
-             (dissoc-in [:entitydb/relations entity-type entity-id invalid-relation]))))
+              related-entity-idents)
+             (dissoc-in [:entitydb/relations entity-ident invalid-relation]))))
      store
      entity-invalid-relations)))
 
@@ -179,7 +180,7 @@
    (let [entity-id (:entitydb/id entity)
          entity-type (:entitydb/type entity)
          entity-ident (entity->entity-ident entity)
-         store' (-> store
+         store' (-> store 
                     (update-in [:entitydb/store entity-type entity-id] #(merge % entity))
                     (remove-invalid-reverse-relations entity))]
 
@@ -188,13 +189,12 @@
         (let [related-entity (:entity v)
               related-entity-type (:entitydb/type related-entity)
               related-entity-id (:entitydb/id related-entity)
-              reverse-relations (or (get-in s [:entitydb.relations/reverse related-entity-type related-entity-id entity-type relation-name entity-id]) #{})
-              reverse-relations' (conj reverse-relations path)
-              entity-relations (or (get-in s [:entitydb/relations entity-type entity-id relation-name]) #{})
-              entity-relations' (conj entity-relations (entity->entity-ident related-entity))]
+              related-entity-ident (entity->entity-ident related-entity)
+              reverse-relations (or (get-in s [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id]) #{})
+              reverse-relations' (conj reverse-relations path)]
           (-> s
-              (assoc-in [:entitydb/relations entity-type entity-id relation-name] entity-relations')
-              (assoc-in [:entitydb.relations/reverse related-entity-type related-entity-id entity-type relation-name entity-id] reverse-relations')
+              (assoc-in [:entitydb/relations entity-ident relation-name path] related-entity-ident)
+              (assoc-in [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id] reverse-relations')
               (insert-prepared v))))
       store'
       related-entities))))

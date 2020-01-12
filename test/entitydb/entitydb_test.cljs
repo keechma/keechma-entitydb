@@ -102,10 +102,10 @@
                       (edb/insert-one :user data)
                       (edb/insert-one :user data-2)
                       (edb/insert-one :user data-3))]
-    (js/console.log (with-out-str (cljs.pprint/pprint with-data)))
-    (js/console.log "------------------------------")
-    (js/console.log (with-out-str (cljs.pprint/pprint (get-in with-data [:entitydb.relations/reverse :post]))))
-    (js/console.log "------------------------------")
+    ;;(js/console.log (with-out-str (cljs.pprint/pprint with-data)))
+    ;;(js/console.log "------------------------------")
+    ;;(js/console.log (with-out-str (cljs.pprint/pprint (into {} (filter (fn [[ident _]] (= :post (:type ident))) (get-in with-data [:entitydb.relations/reverse]))))))
+    ;;(js/console.log "------------------------------")
    ;; (js/console.log (with-out-str (cljs.pprint/pprint (edb/get-by-id with-data :user 1))))
     (let [query [:urls
                  :posts
@@ -114,8 +114,11 @@
                             [(q/include :repositories 
                                         [(q/include [:committers :edges :* :node])])])]
           res (edb/get-by-id with-data :user 1 query)]
-     ;; (js/console.log (with-out-str (cljs.pprint/pprint res)))
-      )))
+      ;;(js/console.log (with-out-str (cljs.pprint/pprint res)))
+      )
+    (let [query [(q/reverse-include :user [:urls :posts])]
+          res (edb/get-by-id with-data :post "my-post-3" query)]
+      (js/console.log (with-out-str (cljs.pprint/pprint res))))))
 
 ;; (def recursive-data
 ;;   {:name "Root"

@@ -1,5 +1,6 @@
 (ns entitydb.query
-  (:require [entitydb.internal :refer [EntityIdent entity? entity-ident?]]))
+  (:require [entitydb.internal :refer [EntityIdent entity? entity-ident? entity->entity-ident]]
+            [clojure.set :as set]))
 
 (declare get-by-id)
 
@@ -17,45 +18,53 @@
     ::recur-limit      recur-limit
     :entitydb/relation relation}))
 
-(defn resolve-relation 
-  ([store current relation queries]
-   (resolve-relation store current relation queries {:iter-path (:entitydb.relation/path relation) :path []}))
-  ([store current relation queries {:keys [iter-path path] :as cursor}]
-   (when current
-     (let [[current-iter & rest-iter-path] iter-path]
-       (cond
-         (and (seq path) (entity? current))
-         current
-         
-         (and (not (seq iter-path)) (entity-ident? current))
-         (get-by-id store (:type current) (:id current) queries)
+(defn reverse-include
+  ([entity-type] (reverse-include entity-type nil))
+  ([entity-type subquery]
+   {::type :reverse
+    ::subquery subquery
+    :entitydb/type entity-type}))
 
-         (entity-ident? current)
-         current
-
-         (= :* current-iter)
-         (map-indexed
-          (fn [idx c]
-            (resolve-relation store c relation queries {:iter-path rest-iter-path :path (conj path idx)}))
-          current)
-         
-         :else
-         (let [cursor' {:iter-path rest-iter-path :path (conj path current-iter)}
-               resolved (resolve-relation store (get current current-iter) relation queries cursor')]
-           (if resolved (assoc current current-iter resolved) current)))))))
+(defn resolve-relation [store entity relation queries]
+  (let [entity-ident (entity->entity-ident entity)
+        related-entities (get-in store [:entitydb/relations entity-ident relation])]
+    (reduce-kv
+     (fn [entity' path related-entity-ident]
+       (assoc-in entity' path (get-by-id store (:type related-entity-ident) (:id related-entity-ident) queries)))
+     entity
+     related-entities)))
 
 (defmulti resolve-query (fn [store entity query parent-queries] (::type query)))
 
 (defmethod resolve-query :default [_ entity _ _] entity)
 
-(defmethod resolve-query :include [store entity query parent-queries]
-  (let [relation (get-in store [:entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
-    (resolve-relation store entity relation (::subquery query))))
+(defmethod resolve-query :union [_ entity _ _] 
+  ;; Union query should be able to check entity's type and then decide which query to use
+  ;; based on the type, so it would look someting like this
+  ;; {:user [:id :posts]
+  ;;  :post [:id :comments]}
+  entity)
+
+(defmethod resolve-query :include [store entity query _] 
+  (resolve-relation store entity (:entitydb/relation query) (::subquery query)))
+
+(defmethod resolve-query :reverse [store entity query _]
+  (let [entity-ident (entity->entity-ident entity)
+        reverse-entity-type (:entitydb/type query)
+        reverse-related (get-in store [:entitydb.relations/reverse entity-ident reverse-entity-type])
+        subquery (::subquery query)]
+    (reduce-kv
+     (fn [entity relation-name relation-data]
+       (let [reverse-related-ids (keys relation-data)
+             reverse-related-entities
+             (into {} (map (fn [id] [id (get-by-id store reverse-entity-type id subquery)]) reverse-related-ids))]
+         (assoc-in entity [:entitydb.relations/reverse reverse-entity-type relation-name] reverse-related-entities)))
+     entity
+     reverse-related)))
 
 (defmethod resolve-query :recur-on [store entity query parent-queries]
   (if (pos? (::recur-limit query))
-    (let [relation (get-in store [:entitydb/schema (:entitydb/type entity) :entitydb/relations (:entitydb/relation query)])]
-      (resolve-relation store entity relation (map (fn [q] (if (= (:recur-on (::type q))) (update q ::recur-limit dec) q)) parent-queries)))
+    (resolve-relation store entity (:entitydb/relation query) (map (fn [q] (if (= (:recur-on (::type q))) (update q ::recur-limit dec) q)) parent-queries))
     entity))
 
 (defn optimize-queries* [queries]
