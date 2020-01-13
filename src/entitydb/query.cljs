@@ -3,6 +3,7 @@
             [clojure.set :as set]))
 
 (declare get-by-id)
+(declare resolve-queries)
 
 (defn include
   ([relation] (include relation nil))
@@ -25,6 +26,10 @@
     ::subquery subquery
     :entitydb/type entity-type}))
 
+(defn switch [switch-queries]
+  {::type :switch
+   ::switch-queries switch-queries})
+
 (defn resolve-relation [store entity relation queries]
   (let [entity-ident (entity->entity-ident entity)
         related-entities (get-in store [:entitydb/relations entity-ident relation])]
@@ -38,12 +43,11 @@
 
 (defmethod resolve-query :default [_ entity _ _] entity)
 
-(defmethod resolve-query :union [_ entity _ _] 
-  ;; Union query should be able to check entity's type and then decide which query to use
-  ;; based on the type, so it would look someting like this
-  ;; {:user [:id :posts]
-  ;;  :post [:id :comments]}
-  entity)
+(defmethod resolve-query :switch [store entity query _] 
+  (let [entity-type (:entitydb/type entity)
+        queries (get-in query [::switch-queries entity-type])]
+    (println queries)
+    (resolve-queries store entity queries)))
 
 (defmethod resolve-query :include [store entity query _] 
   (resolve-relation store entity (:entitydb/relation query) (::subquery query)))

@@ -1,29 +1,18 @@
 (ns entitydb.entitydb
   (:require [entitydb.query :as query]
             [clojure.set :as set]
-            [entitydb.internal :refer [entity->entity-ident entity-ident->entity entity? entity-ident? entitydb-ex-info]]))
-
-(defn dissoc-in
-  "Dissociate a value in a nested associative structure, identified by a sequence
-  of keys. Any collections left empty by the operation will be dissociated from
-  their containing structures."
-  ([m ks]
-   (if-let [[k & ks] (seq ks)]
-     (if (seq ks)
-       (let [v (dissoc-in (get m k) ks)]
-         (if (empty? v)
-           (dissoc m k)
-           (assoc m k v)))
-       (dissoc m k))
-     m))
-  ([m ks & kss]
-   (if-let [[ks' & kss] (seq kss)]
-     (recur (dissoc-in m ks) ks' kss)
-     (dissoc-in m ks))))
+            [medley.core :refer [dissoc-in]]
+            [entitydb.util :refer [vec-remove]]
+            [entitydb.internal :refer [->EntityIdent
+                                       entity->entity-ident
+                                       entity-ident->entity
+                                       entity?
+                                       entity-ident?
+                                       entitydb-ex-info]]))
 
 (def get-by-id query/get-by-id)
 
-(declare prepare-insert*)
+(declare prepare-insert)
 
 
 (defn assoc-entitydb-id [get-id item]
@@ -71,29 +60,27 @@
 (defn insert-schema [store schema]
   (assoc-in store [:entitydb/schema] (prepare-schema schema)))
 
+(defn get-entity-type [entity-type entity]
+  (cond
+    (:entitydb/type entity) (:entitydb/type entity)
+    (fn? entity-type) (entity-type entity)
+    :else entity-type))
+
 (defn get-relation-entity-type [relation entity]
-  (let [entity-type (:entitydb.relation/type relation)]
-    (if (fn? entity-type)
-      (entity-type entity)
-      entity-type)))
+  (get-entity-type (:entitydb.relation/type relation) entity))
 
 (defn prepare-relations [store current related-entities relation {:keys [iter-path path ident relation-name] :as cursor}]
-  ;; TODO
-  ;; Change format so we return recursive structure for the relations
-  ;;
-  ;; - When the entity is inserted first remove all cached relations that start with any of the keys of the map - we are doing a shallow merge
-  ;;   which means that if we have a key in the map, that attribute was present and we can rely on it to have all related-entities (if any) reported
-  ;;   in the related-entities map
   (if current
     (let [[current-iter & rest-iter-path] iter-path]
       (cond
         (and (not (seq iter-path)) (entity-ident? current))
         {:entity current
-         :related-entities (assoc related-entities [relation-name path] {:entity (entity-ident->entity current) :related-entities {}})}
+         :related-entities (assoc related-entities [relation-name path]
+                                  {:entity (entity-ident->entity current) :related-entities {}})}
         
         (and (not (seq iter-path)) current)
         (let [entity-type (get-relation-entity-type relation current)
-              prepared (prepare-insert* store entity-type current)
+              prepared (prepare-insert store entity-type current)
               prepared-entity (:entity prepared)
               prepared-related-entities (:related-entities prepared)]
           {:entity (entity->entity-ident prepared-entity)
@@ -128,15 +115,15 @@
     {:entity current
      :related-entities related-entities}))
 
-(defn prepare-insert*
-  ([store entity-type entity] (prepare-insert* store entity-type entity {}))
+(defn prepare-insert
+  ([store entity-type entity] (prepare-insert store entity-type entity {}))
   ([store entity-type entity related-entities]
    (let [entity-schema (get-in store [:entitydb/schema entity-type])
          processor (or (:entitydb/processor entity-schema)
                        (partial assoc-entitydb-id :id)) 
          relations (:entitydb/relations entity-schema)
          entity' (-> (processor entity)
-                     (assoc :entitydb/type entity-type))]
+                     (assoc :entitydb/type (get-entity-type entity-type entity)))]
      (reduce-kv  
       (fn [{:keys [entity related-entities]} k v]  
         (prepare-relations store entity related-entities v
@@ -148,7 +135,7 @@
        :related-entities related-entities}
       relations))))
 
-(defn remove-invalid-reverse-relations [store entity]
+(defn remove-invalid-relations [store entity]
   (let [entity-type (:entitydb/type entity)
         entity-id (:entitydb/id entity)
         entity-ident (entity->entity-ident entity)
@@ -182,7 +169,7 @@
          entity-ident (entity->entity-ident entity)
          store' (-> store 
                     (update-in [:entitydb/store entity-type entity-id] #(merge % entity))
-                    (remove-invalid-reverse-relations entity))]
+                    (remove-invalid-relations entity))]
 
      (reduce-kv
       (fn [s [relation-name path] v]
@@ -199,12 +186,53 @@
       store'
       related-entities))))
 
-(defn insert-one [store entity-type entity]
-  (let [prepared (prepare-insert* store entity-type entity)]
+(defn insert [store entity-type entity]
+  (let [prepared (prepare-insert store entity-type entity)]
     (insert-prepared store prepared)))
 
+(defn remove-by-id [store entity-type id]
+  (if-let [entity (get-by-id store entity-type id)]
+    (let [entity-ident (entity->entity-ident entity)
+          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])]
+      ;; For each reverse relation we have to clear the data on it's position in the 
+      ;; owner entity. We also need to clear the cached :entitydb/relation
+      ;;
+      ;; TODO: Figure out how to implement it without 4 nested reduces
+      (-> (reduce-kv
+           (fn [store related-entity-type relation]
+             (reduce-kv
+              (fn [store relation related-entities-id-paths]
+                (reduce-kv
+                 (fn [store related-entity-id paths]
+                   (reduce
+                    (fn [store path]
+                      (let [related-entity-ident (->EntityIdent related-entity-type related-entity-id)
+                            related-entity (get-in store [:entitydb/store related-entity-type related-entity-id])
+                            path-without-last (drop-last path)
+                            last-path-segment (last path)
+                            last-path-segment-parent (get-in related-entity path-without-last)
+                            updated-last-path-segment-parent
+                            (if (and (int? last-path-segment) (sequential? last-path-segment-parent))
+                              (vec-remove last-path-segment last-path-segment-parent)
+                              (dissoc last-path-segment-parent last-path-segment))
+                            updated-related-entity (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
+                        (-> store
+                            (assoc-in [:entitydb/store related-entity-type related-entity-id] updated-related-entity)
+                            (dissoc-in [:entitydb/relations related-entity-ident relation path]))))
+                    store
+                    paths))
+                 store
+                 related-entities-id-paths))
+              store
+              relation))
+           store
+           reverse-relations)
+          (dissoc-in [:entitydb.relations/reverse entity-ident])
+          (dissoc-in [:entitydb/store entity-type id])))
+    store))
+
 (defn insert-many [store entity-type entities]
-  (reduce (fn [acc entity] (insert-one acc entity-type entity)) store entities))
+  (reduce (fn [acc entity] (insert acc entity-type entity)) store entities))
 
 (defn insert-named [store entity-type entity-name data])
 

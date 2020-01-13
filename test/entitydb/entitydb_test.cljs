@@ -7,13 +7,13 @@
 (use-fixtures :once
   {:before (fn [] (js/console.clear))})
 
-(deftest insert-one []
-  (let [res (edb/insert-one {} :user {:id 1 :username "Retro"})]
+(deftest insert []
+  (let [res (edb/insert {} :user {:id 1 :username "Retro"})]
     (is (= res {:entitydb/store {:user {1 {:id 1 :entitydb/id 1 :username "Retro" :entitydb/type :user}}}}))))
 
 (deftest inserting-entity-when-exists-merges-attrs []
   (let [store {:entitydb/store {:user {1 {:full-name "Mihael Konjevic"}}}}
-        res (edb/insert-one store :user {:id 1 :username "Retro"})]
+        res (edb/insert store :user {:id 1 :username "Retro"})]
     (is (= res {:entitydb/store
             {:user
              {1 {:id 1 :entitydb/id 1 :username "Retro" :full-name "Mihael Konjevic" :entitydb/type :user}}}}))))
@@ -59,12 +59,28 @@
                                :edges [{:cursor 3
                                         :node {:id 1}}]}}]})
 
+(def tibor-data {:username "tibor"
+                 :id 2
+                 :posts {:pageInfo {:hasNextPage true}
+                         :edges [{:cursor "1"
+                                  :node {:slug "my-post-1"
+                                         :title "My Post #1"}}
+                                 {:cursor "2"
+                                  :node {:slug "my-post-1"
+                                         :title "My Post #1"}}
+                                 {:cursor "3"
+                                  :node {:slug "my-post-2"
+                                         :title "My Post #2"}}]}})
+
 (def data-2 {:username "tiborkr"
              :id 2
              :posts {:pageInfo {:hasNextPage true}
                      :edges [{:cursor "1"
                               :node {:slug "my-post-1"
-                                     :title "My Post #1"}}]}})
+                                     :title "My Post #1"}}
+                             {:cursor "3"
+                              :node {:slug "my-post-3"
+                                     :title "My Post #3"}}]}})
 
 (def data-3 {:username "retro"
              :id 1
@@ -99,26 +115,31 @@
 (deftest relations
   (let [with-schema (edb/insert-schema {} schema)
         with-data (-> with-schema
-                      (edb/insert-one :user data)
-                      (edb/insert-one :user data-2)
-                      (edb/insert-one :user data-3))]
-    ;;(js/console.log (with-out-str (cljs.pprint/pprint with-data)))
+                      (edb/insert :user data)
+                      (edb/insert :user data-2)
+                      (edb/insert :user data-3)
+                      (edb/remove-by-id :post "my-post-3")
+                      (edb/remove-by-id :url "https://keechma.com")
+                      )]
+    (js/console.log (with-out-str (cljs.pprint/pprint with-data)))
     ;;(js/console.log "------------------------------")
     ;;(js/console.log (with-out-str (cljs.pprint/pprint (into {} (filter (fn [[ident _]] (= :post (:type ident))) (get-in with-data [:entitydb.relations/reverse]))))))
     ;;(js/console.log "------------------------------")
    ;; (js/console.log (with-out-str (cljs.pprint/pprint (edb/get-by-id with-data :user 1))))
     (let [query [:urls
-                 :posts
+                 ;;:posts
                  :group-members
                  (q/include :githubProfile 
                             [(q/include :repositories 
                                         [(q/include [:committers :edges :* :node])])])]
+          query-1 [(q/switch {:user [:group-members]})]
           res (edb/get-by-id with-data :user 1 query)]
-      ;;(js/console.log (with-out-str (cljs.pprint/pprint res)))
-      )
-    (let [query [(q/reverse-include :user [:urls :posts])]
+      (js/console.log (with-out-str (cljs.pprint/pprint res))))
+    #_(let [query [(q/reverse-include :user [:urls (q/include :posts [(q/reverse-include :user)])]
+                                    )]
           res (edb/get-by-id with-data :post "my-post-3" query)]
-      (js/console.log (with-out-str (cljs.pprint/pprint res))))))
+      ;;(js/console.log (with-out-str (cljs.pprint/pprint res)))
+      )))
 
 ;; (def recursive-data
 ;;   {:name "Root"
@@ -142,7 +163,7 @@
 
 ;; (deftest recursive-relations
 ;;   (let [with-schema (edb/insert-schema {} recursive-schema)
-;;         with-data (edb/insert-one with-schema :folder recursive-data)]
+;;         with-data (edb/insert with-schema :folder recursive-data)]
 ;;     ;;(js/console.log (with-out-str (cljs.pprint/pprint with-data)))
 ;;     ;;(js/console.log (with-out-str (cljs.pprint/pprint (edb/get-by-id with-data :user 1))))
 ;;     (let [query [:files (q/recur-on :folders)] 
@@ -174,7 +195,7 @@
 
 ;; (deftest recursive-relations-2
 ;;   (let [with-schema (edb/insert-schema {} recursive-schema-2)
-;;         with-data (edb/insert-one with-schema :person recursive-data-2)]
+;;         with-data (edb/insert with-schema :person recursive-data-2)]
 ;;     ;;(js/console.log (with-out-str (cljs.pprint/pprint with-data)))
 ;;     ;;(js/console.log (with-out-str (cljs.pprint/pprint (edb/get-by-id with-data :user 1))))
 ;;     (let [query [(q/recur-on :friends 2) (q/recur-on :enemies 2)] 
