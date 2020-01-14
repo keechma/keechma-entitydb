@@ -2,7 +2,7 @@
   (:require [entitydb.query :as query]
             [clojure.set :as set]
             [medley.core :refer [dissoc-in]]
-            [entitydb.util :refer [vec-remove]]
+            [entitydb.util :refer [vec-remove nth-vals]]
             [entitydb.internal :refer [->EntityIdent
                                        entity->entity-ident
                                        entity-ident->entity
@@ -190,10 +190,16 @@
   (let [prepared (prepare-insert store entity-type entity)]
     (insert-prepared store prepared)))
 
+(defn get-report [entity-ident reverse-relations]
+  (into [] (for [x (nth-vals [] 3 reverse-relations)
+                 y [x]
+                 z y] [entity-ident z])))
+
 (defn remove-by-id [store entity-type id]
   (if-let [entity (get-by-id store entity-type id)]
     (let [entity-ident (entity->entity-ident entity)
-          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])]
+          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])
+          report (get-report entity-ident reverse-relations)]
       ;; For each reverse relation we have to clear the data on it's position in the 
       ;; owner entity. We also need to clear the cached :entitydb/relation
       ;;
