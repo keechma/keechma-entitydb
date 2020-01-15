@@ -167,28 +167,34 @@
    (let [entity-id (:entitydb/id entity)
          entity-type (:entitydb/type entity)
          entity-ident (entity->entity-ident entity)
-         store' (-> store 
-                    (update-in [:entitydb/store entity-type entity-id] #(merge % entity))
-                    (remove-invalid-relations entity))]
+         updated-store 
+         (as-> store store'
+           (update-in store' [:entitydb/store entity-type entity-id] #(merge % entity))
+           (remove-invalid-relations store' entity)
+           (reduce-kv
+            (fn [s [relation-name path] v]
+              (let [related-entity (:entity v)
+                    related-entity-type (:entitydb/type related-entity)
+                    related-entity-id (:entitydb/id related-entity)
+                    related-entity-ident (entity->entity-ident related-entity)
+                    reverse-relations (or (get-in s [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id]) #{})
+                    reverse-relations' (conj reverse-relations path)]
+                (-> s
+                    (assoc-in [:entitydb/relations entity-ident relation-name path] related-entity-ident)
+                    (assoc-in [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id] reverse-relations')
+                    (insert-prepared v)
+                    :store)))
+            store'
+            related-entities))]
+     {:store updated-store
+      :entity (get-in updated-store [:entitydb/store entity-type entity-id])})))
 
-     (reduce-kv
-      (fn [s [relation-name path] v]
-        (let [related-entity (:entity v)
-              related-entity-type (:entitydb/type related-entity)
-              related-entity-id (:entitydb/id related-entity)
-              related-entity-ident (entity->entity-ident related-entity)
-              reverse-relations (or (get-in s [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id]) #{})
-              reverse-relations' (conj reverse-relations path)]
-          (-> s
-              (assoc-in [:entitydb/relations entity-ident relation-name path] related-entity-ident)
-              (assoc-in [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id] reverse-relations')
-              (insert-prepared v))))
-      store'
-      related-entities))))
-
-(defn insert [store entity-type entity]
-  (let [prepared (prepare-insert store entity-type entity)]
+(defn insert* [store entity-type data]
+  (let [prepared (prepare-insert store entity-type data)]
     (insert-prepared store prepared)))
+
+(defn insert [store entity-type data]
+  (:store (insert* store entity-type data)))
 
 (defn get-report [reverse-relations]
   (into [] (for [[type rel]                   reverse-relations
@@ -198,6 +204,9 @@
              {:entity-ident (->EntityIdent type rel-pair-id) 
               :relation     rel-name
               :path         rel-pair-path})))
+
+(defn remove-from-named-items [store entity-ident])
+(defn remove-from-collections [store entity-ident])
 
 (defn remove-by-id* [store entity-type id]
   (if-let [entity (get-by-id store entity-type id)]
@@ -217,7 +226,7 @@
                             last-path-segment        (last path)
                             last-path-segment-parent (get-in related-entity path-without-last)
                             updated-last-path-segment-parent
-                            (if (and (int? last-path-segment) (sequential? last-path-segment-parent))
+                            (if (and (integer? last-path-segment) (sequential? last-path-segment-parent))
                               (vec-remove last-path-segment last-path-segment-parent)
                               (dissoc last-path-segment-parent last-path-segment))
                             updated-related-entity   (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
@@ -238,12 +247,41 @@
 (defn insert-many [store entity-type entities]
   (reduce (fn [acc entity] (insert acc entity-type entity)) store entities))
 
-(defn insert-named [store entity-type entity-name data])
+(defn insert-named-item
+  ([store entity-type entity-name data] 
+   (insert-named-item store entity-type entity-name data nil))
+  ([store entity-type entity-name data named-meta]
+   (let [{:keys [store entity]} (insert* store entity-type data)]
+     (assoc-in store 
+               [:entitydb.named/item entity-name] 
+               {:data (entity->entity-ident entity)
+                :meta named-meta}))))
 
-(defn insert-collection [store entity-type collection-name data])
+(defn insert-collection 
+  ([store entity-type collection-name data]
+   (insert-collection store entity-type collection-name data nil))
+  ([store entity-type collection-name data collection-meta]
+   (let [{:keys [store entities]}
+         (reduce
+          (fn [{:keys [store entities]} item]
+            (let [{:keys [store entity]} (insert* store entity-type item)]
+              {:store store
+               :entities (conj entities entity)}))
+          {:store store
+           :entities []}
+          data)]
+     (assoc-in store
+               [:entitydb.named/collection collection-name]
+               {:data (map entity->entity-ident entities)
+                :meta collection-meta}))))
 
+(defn get-named
+  ([store entity-name] (get-named store entity-name nil))
+  ([store entity-name query]))
 
-
+(defn get-collection
+  ([store collection-name] (get-collection store collection-name nil))
+  ([store collection-name query]))
 
 
 
