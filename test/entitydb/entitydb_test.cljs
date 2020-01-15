@@ -91,12 +91,21 @@
              :posts    {:pageInfo {:hasNextPage true}
                         :edges    [{:cursor "1"
                                     :node   {:slug  "my-post-3"
+                                             :title "My Post #3"}}
+                                   {:cursor "3"
+                                    :node   {:slug  "my-post-2"
+                                             :title "My Post #2"}}
+                                   {:cursor "1"
+                                    :node   {:slug  "my-post-3"
                                              :title "My Post #3"}}]}})
 
 (def data-4 {:username        "dario"
              :id              3
              :favoritePosts {:pageInfo {:hasNextPage true}
-                             :edges    [{:cursor "1"
+                             :edges    [ {:cursor "3"
+                                           :node   {:slug  "my-post-2"
+                                                    :title "My Post #2"}}
+                                        {:cursor "1"
                                          :node   {:slug  "my-post-3"
                                                   :title "My Post #3"}}
                                         {:cursor "2"

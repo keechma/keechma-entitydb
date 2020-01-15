@@ -2,10 +2,7 @@
   (:require [entitydb.query :as query]
             [clojure.set :as set]
             [medley.core :refer [dissoc-in]]
-            [entitydb.util :refer [vec-remove 
-                                   nth-vals 
-                                   vals-three-levels-deep 
-                                   log]]
+            [entitydb.util :refer [vec-remove log]]
             [entitydb.internal :refer [->EntityIdent
                                        entity->entity-ident
                                        entity-ident->entity
@@ -193,52 +190,50 @@
   (let [prepared (prepare-insert store entity-type entity)]
     (insert-prepared store prepared)))
 
-(defn get-report [entity-ident reverse-relations]
-  (into [] (for [x (vals-three-levels-deep reverse-relations)
-                 y [x]
-                 z y] [entity-ident z])))
+(defn get-report [reverse-relations]
+  (into [] (for [[type rel]                   reverse-relations
+                 [rel-name rel-pairs]         rel
+                 [rel-pair-id rel-pair-paths] rel-pairs
+                 rel-pair-path                rel-pair-paths]
+             {:entity-ident (->EntityIdent type rel-pair-id) 
+              :relation     rel-name
+              :path         rel-pair-path})))
 
-(defn remove-by-id [store entity-type id]
+(defn remove-by-id* [store entity-type id]
   (if-let [entity (get-by-id store entity-type id)]
-    (let [entity-ident (entity->entity-ident entity)
+    (let [entity-ident      (entity->entity-ident entity)
           reverse-relations (get-in store [:entitydb.relations/reverse entity-ident]) 
-          report (get-report entity-ident reverse-relations)]
+          report            (get-report reverse-relations) ]
       ;; For each reverse relation we have to clear the data on it's position in the 
       ;; owner entity. We also need to clear the cached :entitydb/relation
-      ;;
-      ;; TODO: Figure out how to implement it without 4 nested reduces
-      (-> (reduce-kv
-           (fn [store related-entity-type relation]
-             (reduce-kv
-              (fn [store relation related-entities-id-paths]
-                (reduce-kv
-                 (fn [store related-entity-id paths]
-                   (reduce
-                    (fn [store path]
-                      (let [related-entity-ident (->EntityIdent related-entity-type related-entity-id)
-                            related-entity (get-in store [:entitydb/store related-entity-type related-entity-id])
-                            path-without-last (drop-last path)
-                            last-path-segment (last path)
+      {:store (->  (reduce
+                    (fn [store relation-report]
+                      (let [related-entity-ident     (:entity-ident relation-report)
+                            {:keys [relation path]}  relation-report
+                            related-entity-type      (:type related-entity-ident)
+                            related-entity-id        (:id related-entity-ident)
+                            related-entity           (get-in store [:entitydb/store related-entity-type related-entity-id])
+                            path-without-last        (drop-last path)
+                            last-path-segment        (last path)
                             last-path-segment-parent (get-in related-entity path-without-last)
                             updated-last-path-segment-parent
                             (if (and (int? last-path-segment) (sequential? last-path-segment-parent))
                               (vec-remove last-path-segment last-path-segment-parent)
                               (dissoc last-path-segment-parent last-path-segment))
-                            updated-related-entity (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
+                            updated-related-entity   (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
                         (-> store
                             (assoc-in [:entitydb/store related-entity-type related-entity-id] updated-related-entity)
                             (dissoc-in [:entitydb/relations related-entity-ident relation path]))))
                     store
-                    paths))
-                 store
-                 related-entities-id-paths))
-              store
-              relation))
-           store
-           reverse-relations)
-          (dissoc-in [:entitydb.relations/reverse entity-ident])
-          (dissoc-in [:entitydb/store entity-type id])))
-    store))
+                    report)
+                   (dissoc-in [:entitydb.relations/reverse entity-ident])
+                   (dissoc-in [:entitydb/store entity-type id]))
+       :report report})
+    {:store store
+     :report []}))
+
+(defn remove-by-id [store entity-type id]
+  (:store (remove-by-id* store entity-type id)))
 
 (defn insert-many [store entity-type entities]
   (reduce (fn [acc entity] (insert acc entity-type entity)) store entities))
