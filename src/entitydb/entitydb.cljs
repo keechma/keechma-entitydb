@@ -205,40 +205,51 @@
               :relation     rel-name
               :path         rel-pair-path})))
 
-(defn remove-from-named-items [store entity-ident])
-(defn remove-from-collections [store entity-ident])
+(defn remove-ident-from-named-items [store entity-ident]
+  "Return store without named-items that contain passed entity-ident."
+  (let [named-items' (into {} (filter (fn [[k v]] (not= entity-ident (:data v))) (:entitydb.named/item store)))]
+    (assoc store :entitydb.named/item named-items')))
+
+(defn remove-ident-from-collections [store entity-ident]
+  "Return store with entity-ident cleared from collections. 
+   Will return empty collection if entity-ident was the only element in collection."
+  (let [collections' (reduce-kv (fn [acc k v]
+                                  (assoc acc k (assoc v :data (filter (fn [a] (not= entity-ident a)) (:data v))))) {} (:entitydb.named/collection store))]
+    (assoc store :entitydb.named/collection collections')))
 
 (defn remove-by-id* [store entity-type id]
   (if-let [entity (get-by-id store entity-type id)]
     (let [entity-ident      (entity->entity-ident entity)
-          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident]) 
-          report            (get-report reverse-relations) ]
+          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])  
+          report            (get-report reverse-relations)]
       ;; For each reverse relation we have to clear the data on it's position in the 
       ;; owner entity. We also need to clear the cached :entitydb/relation
-      {:store (->  (reduce
-                    (fn [store relation-report]
-                      (let [related-entity-ident     (:entity-ident relation-report)
-                            {:keys [relation path]}  relation-report
-                            related-entity-type      (:type related-entity-ident)
-                            related-entity-id        (:id related-entity-ident)
-                            related-entity           (get-in store [:entitydb/store related-entity-type related-entity-id])
-                            path-without-last        (drop-last path)
-                            last-path-segment        (last path)
-                            last-path-segment-parent (get-in related-entity path-without-last)
-                            updated-last-path-segment-parent
-                            (if (and (integer? last-path-segment) (sequential? last-path-segment-parent))
-                              (vec-remove last-path-segment last-path-segment-parent)
-                              (dissoc last-path-segment-parent last-path-segment))
-                            updated-related-entity   (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
-                        (-> store
-                            (assoc-in [:entitydb/store related-entity-type related-entity-id] updated-related-entity)
-                            (dissoc-in [:entitydb/relations related-entity-ident relation path]))))
-                    store
-                    report)
-                   (dissoc-in [:entitydb.relations/reverse entity-ident])
-                   (dissoc-in [:entitydb/store entity-type id]))
+      {:store  (->  (reduce
+                     (fn [store relation-report]
+                       (let [related-entity-ident     (:entity-ident relation-report)
+                             {:keys [relation path]}  relation-report
+                             related-entity-type      (:type related-entity-ident)
+                             related-entity-id        (:id related-entity-ident)
+                             related-entity           (get-in store [:entitydb/store related-entity-type related-entity-id])
+                             path-without-last        (drop-last path)
+                             last-path-segment        (last path)
+                             last-path-segment-parent (get-in related-entity path-without-last)
+                             updated-last-path-segment-parent
+                             (if (and (integer? last-path-segment) (sequential? last-path-segment-parent))
+                               (vec-remove last-path-segment last-path-segment-parent)
+                               (dissoc last-path-segment-parent last-path-segment))
+                             updated-related-entity   (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
+                         (-> store
+                             (assoc-in [:entitydb/store related-entity-type related-entity-id] updated-related-entity)
+                             (dissoc-in [:entitydb/relations related-entity-ident relation path]))))
+                     store
+                     report)
+                    (dissoc-in [:entitydb.relations/reverse entity-ident])
+                    (dissoc-in [:entitydb/store entity-type id])
+                    (remove-ident-from-named-items entity-ident)
+                    (remove-ident-from-collections entity-ident))
        :report report})
-    {:store store
+    {:store  store
      :report []}))
 
 (defn remove-by-id [store entity-type id]
@@ -277,11 +288,22 @@
 
 (defn get-named
   ([store entity-name] (get-named store entity-name nil))
-  ([store entity-name query]))
+  ([store entity-name query]
+   (when-let [entity-ident (get-in store [:entitydb.named/item entity-name :data])]
+     (get-by-id store (:type entity-ident) (:id entity-ident) query))))
 
 (defn get-collection
   ([store collection-name] (get-collection store collection-name nil))
-  ([store collection-name query]))
+  ([store collection-name query]
+   (when-let [entity-idents (get-in store [:entitydb.named/collection collection-name :data])]
+     (mapv
+      #(get-by-id store (:type %) (:id %) query)
+      entity-idents))))
 
+(defn remove-named [store entity-name]
+  (dissoc-in store [:entitydb.named/item entity-name]))
+
+(defn remove-collection [store collection-name]
+  (dissoc-in store [:entitydb.named/collection collection-name]))
 
 

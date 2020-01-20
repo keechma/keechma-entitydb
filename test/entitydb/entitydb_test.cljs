@@ -122,6 +122,22 @@
                                            :node   {:slug  "my-post-2"
                                                     :title "My Post #2"}}]}})
 
+(def current-github-repositories 
+  [{:id       1
+    :name     "keechma"
+    :homepage {:url "https://keechma.com" :description "Keechma Homepage"}
+    :committers
+    {:pageInfo {:hasNextPage false}
+     :edges
+     [{:cursor 1 :node {:username "retro"}}
+      {:cursor 2 :node {:username "tiborkr"}}]}}
+   {:id   2
+    :name "entitydb"}])
+
+(def archived-github-repositories 
+  [{:id   3
+    :name "entitydb"}])
+
 (def schema {:user              {:entitydb/relations
                                  {:urls           {:entitydb.relation/path [:urls :*]
                                                    :entitydb.relation/type :url}
@@ -153,30 +169,38 @@
   (let [with-schema (edb/insert-schema {} schema)
         with-data   (-> with-schema
                         (edb/insert :user data)
-                        (edb/insert :user data-2)
+                        (edb/insert-named-item :post :current {:slug  "my-post-3"
+                                                               :title "My Post #3"})
+                        (edb/insert-named-item :post :favorite {:slug  "my-post-4"
+                                                                :title "My Post #4"})
+                        (edb/insert-collection :github-repository :current current-github-repositories)
+                        (edb/insert-collection :github-repository :archived archived-github-repositories)
                         (edb/insert :user data-3)
                         (edb/insert :user data-4)
-                        (edb/remove-by-id :post "my-post-3")
+                       ;; (edb/remove-by-id :post "my-post-3")
+                        (edb/remove-by-id :github-repository 3)
                         (edb/remove-by-id :url "https://keechma.com")
+                        ;;(edb/remove-named :favorite)
                         )]
               ;;(js/console.log (with-out-str (cljs.pprint/pprint with-data)))
               ;;(js/console.log "------------------------------")
               ;;(js/console.log (with-out-str (cljs.pprint/pprint (into {} (filter (fn [[ident _]] (= :post (:type ident))) (get-in with-data [:entitydb.relations/reverse]))))))
               ;;(js/console.log "------------------------------")
               ;; (js/console.log (with-out-str (cljs.pprint/pprint (edb/get-by-id with-data :user 1))))
-    (let [query   [:urls
-                   ;;:posts
-                   :group-members
-                   (q/include :githubProfile
-                              [(q/include :repositories
-                                          [(q/include [:committers :edges :* :node])])])]
-          query-1 [(q/switch {:user [:group-members]})]
-          res     (edb/get-by-id with-data :user 1 query)]
-            ;;       (js/console.log (with-out-str (cljs.pprint/pprint res)))
+              (let [query   [:urls
+                             ;;:posts
+                             :group-members
+                             (q/include :githubProfile
+                                        [(q/include :repositories
+                                                    [(q/include [:committers :edges :* :node])])])]
+                    query-1 [(q/switch {:user [:group-members]})]
+                    res-1   (edb/get-by-id with-data :user 1 query-1)
+                    query-2 (edb/get-collection with-data :current [(q/include [:committers :edges :* :node])])]
+                 ;;(js/console.log "GET_COLLECTION" (with-out-str (cljs.pprint/pprint query-2)))
                 )
-    #_(let [query [(q/reverse-include :user [:urls (q/include :posts [(q/reverse-include :user)])]
-                                      )]
-            res   (edb/get-by-id with-data :post "my-post-3" query)]
+              #_(let [query [(q/reverse-include :user [:urls (q/include :posts [(q/reverse-include :user)])]
+                                                )]
+                      res   (edb/get-by-id with-data :post "my-post-3" query)]
                      ;;(js/console.log (with-out-str (cljs.pprint/pprint res)))
                      )))
 
