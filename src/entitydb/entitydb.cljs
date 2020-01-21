@@ -31,21 +31,21 @@
                                                (update :entitydb.relation/processor #(or % identity)))] 
                      (when (= :* (first (:entitydb.relation/path prepared-relation)))
                        (throw (entitydb-ex-info "Relation's :entitydb.relation/path can't start with :*" 
-                                                {:entitydb/relation prepared-relation 
+                                                {:entitydb/relation      prepared-relation 
                                                  :entitydb.relation/name relation-name
-                                                 :entitydb/type entitydb-type})))
+                                                 :entitydb/type          entitydb-type})))
                      (when (nil? (:entitydb.relation/type prepared-relation))
                        (throw (entitydb-ex-info "Relation must have :entitydb.relation/type defined" 
-                                                {:entitydb/relation prepared-relation 
+                                                {:entitydb/relation      prepared-relation 
                                                  :entitydb.relation/name relation-name
-                                                 :entitydb/type entitydb-type})))
+                                                 :entitydb/type          entitydb-type})))
                      [relation-name prepared-relation])))
                 (into {})))
     type-schema))
 
 (defn prepare-type-schema-processor [type-schema _]
-   (let [get-id (or (:entitydb/id type-schema) :id)
-         processor (or (:entitydb/processor type-schema) identity)]
+  (let [get-id    (or (:entitydb/id type-schema) :id)
+        processor (or (:entitydb/processor type-schema) identity)]
      (assoc type-schema :entitydb/processor (comp (partial assoc-entitydb-id get-id) processor))))
 
 (defn prepare-schema [schema]
@@ -63,8 +63,8 @@
 (defn get-entity-type [entity-type entity]
   (cond
     (:entitydb/type entity) (:entitydb/type entity)
-    (fn? entity-type) (entity-type entity)
-    :else entity-type))
+    (fn? entity-type)       (entity-type entity)
+    :else                   entity-type))
 
 (defn get-relation-entity-type [relation entity]
   (get-entity-type (:entitydb.relation/type relation) entity))
@@ -74,20 +74,20 @@
     (let [[current-iter & rest-iter-path] iter-path]
       (cond
         (and (not (seq iter-path)) (entity-ident? current))
-        {:entity current
+        {:entity           current
          :related-entities (assoc related-entities [relation-name path]
                                   {:entity (entity-ident->entity current) :related-entities {}})}
         
         (and (not (seq iter-path)) current)
-        (let [entity-type (get-relation-entity-type relation current)
-              prepared (prepare-insert store entity-type current)
-              prepared-entity (:entity prepared)
+        (let [entity-type               (get-relation-entity-type relation current)
+              prepared                  (prepare-insert store entity-type current)
+              prepared-entity           (:entity prepared)
               prepared-related-entities (:related-entities prepared)]
-          {:entity (entity->entity-ident prepared-entity)
+          {:entity           (entity->entity-ident prepared-entity)
            :related-entities (assoc related-entities [relation-name path] {:entity prepared-entity :related-entities prepared-related-entities})})
 
         (entity-ident? current)
-        {:entity current
+        {:entity           current
          :related-entities related-entities}
         
         (= :* current-iter)
@@ -98,48 +98,48 @@
                    (prepare-relations store v (:related-entities m) relation 
                                       (merge cursor {:iter-path rest-iter-path :path (conj path idx)}))]
                (if entity
-                 {:entity (conj (:entity m) entity)
+                 {:entity           (conj (:entity m) entity)
                   :related-entities related-entities}
                  m))) 
            {:entity [] :related-entities related-entities}
            (vec current))
-          {:entity nil
+          {:entity           nil
            :related-entities related-entities})
 
         :else
         (let [{:keys [entity related-entities]} 
               (prepare-relations store (get current current-iter) related-entities relation 
                                  (merge cursor {:iter-path rest-iter-path :path (conj path current-iter)}))]
-          {:entity (if entity (assoc current current-iter entity) current)
+          {:entity           (if entity (assoc current current-iter entity) current)
            :related-entities related-entities})))
-    {:entity current
+    {:entity           current
      :related-entities related-entities}))
 
 (defn prepare-insert
   ([store entity-type entity] (prepare-insert store entity-type entity {}))
   ([store entity-type entity related-entities]
    (let [entity-schema (get-in store [:entitydb/schema entity-type])
-         processor (or (:entitydb/processor entity-schema)
-                       (partial assoc-entitydb-id :id)) 
-         relations (:entitydb/relations entity-schema)
-         entity' (-> (processor entity)
-                     (assoc :entitydb/type (get-entity-type entity-type entity)))]
+         processor     (or (:entitydb/processor entity-schema)
+                           (partial assoc-entitydb-id :id)) 
+         relations     (:entitydb/relations entity-schema)
+         entity'       (-> (processor entity)
+                           (assoc :entitydb/type (get-entity-type entity-type entity)))]
      (reduce-kv  
       (fn [{:keys [entity related-entities]} k v]  
         (prepare-relations store entity related-entities v
-                           {:iter-path (:entitydb.relation/path v) 
-                            :path []
+                           {:iter-path     (:entitydb.relation/path v) 
+                            :path          []
                             :relation-name k
-                            :ident (entity->entity-ident entity')}))
-      {:entity entity'
+                            :ident         (entity->entity-ident entity')}))
+      {:entity           entity'
        :related-entities related-entities}
       relations))))
 
 (defn remove-invalid-relations [store entity]
-  (let [entity-type (:entitydb/type entity)
-        entity-id (:entitydb/id entity)
-        entity-ident (entity->entity-ident entity)
-        entity-relations (get-in store [:entitydb/schema entity-type :entitydb/relations])
+  (let [entity-type        (:entitydb/type entity)
+        entity-id          (:entitydb/id entity)
+        entity-ident       (entity->entity-ident entity)
+        entity-relations   (get-in store [:entitydb/schema entity-type :entitydb/relations])
         entity-update-keys (set (keys entity))
         entity-invalid-relations 
         (reduce-kv 
@@ -164,8 +164,8 @@
 (defn insert-prepared
   ([store prepared] (insert-prepared store prepared nil))
   ([store {:keys [entity related-entities]} parent-entity-ident]
-   (let [entity-id (:entitydb/id entity)
-         entity-type (:entitydb/type entity)
+   (let [entity-id    (:entitydb/id entity)
+         entity-type  (:entitydb/type entity)
          entity-ident (entity->entity-ident entity)
          updated-store 
          (as-> store store'
@@ -173,12 +173,12 @@
            (remove-invalid-relations store' entity)
            (reduce-kv
             (fn [s [relation-name path] v]
-              (let [related-entity (:entity v)
-                    related-entity-type (:entitydb/type related-entity)
-                    related-entity-id (:entitydb/id related-entity)
+              (let [related-entity       (:entity v)
+                    related-entity-type  (:entitydb/type related-entity)
+                    related-entity-id    (:entitydb/id related-entity)
                     related-entity-ident (entity->entity-ident related-entity)
-                    reverse-relations (or (get-in s [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id]) #{})
-                    reverse-relations' (conj reverse-relations path)]
+                    reverse-relations    (or (get-in s [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id]) #{})
+                    reverse-relations'   (conj reverse-relations path)]
                 (-> s
                     (assoc-in [:entitydb/relations entity-ident relation-name path] related-entity-ident)
                     (assoc-in [:entitydb.relations/reverse related-entity-ident entity-type relation-name entity-id] reverse-relations')
@@ -186,7 +186,7 @@
                     :store)))
             store'
             related-entities))]
-     {:store updated-store
+     {:store  updated-store
       :entity (get-in updated-store [:entitydb/store entity-type entity-id])})))
 
 (defn insert* [store entity-type data]
@@ -276,9 +276,9 @@
          (reduce
           (fn [{:keys [store entities]} item]
             (let [{:keys [store entity]} (insert* store entity-type item)]
-              {:store store
+              {:store    store
                :entities (conj entities entity)}))
-          {:store store
+          {:store    store
            :entities []}
           data)]
      (assoc-in store
@@ -306,4 +306,40 @@
 (defn remove-collection [store collection-name]
   (dissoc-in store [:entitydb.named/collection collection-name]))
 
+(defn entitydb-store->entity-idents-set [store]
+  (let [store (:entitydb/store store)]
+    (set (for [[type value] store
+               [id _]       value]
+           (->EntityIdent type id)))))
 
+(defn entitydb-named->entity-idents-set [store]
+  (let [named-items                     (:entitydb.named/item store)
+        named-collections               (:entitydb.named/collection store)
+        named-items-entity-idents       (map :data (vals named-items))
+        named-collections-entity-idents (mapcat :data (vals named-collections))]
+   (set (concat named-items-entity-idents named-collections-entity-idents))))
+
+(defn get-entity-idents-to-remove [entity-idents-to-remove relations ref-idents]
+  (reduce 
+   (fn [acc entity-ident]
+     (if (contains? acc entity-ident)
+       (let [acc'                    (disj acc entity-ident)
+             entity-idents-relations (get relations entity-ident)
+             related-entity-idents   (for [[_ path-ident-pair]      entity-idents-relations
+                                           [_ related-entity-ident] path-ident-pair]
+                                       related-entity-ident)]
+         (get-entity-idents-to-remove acc' relations related-entity-idents))
+       acc)) entity-idents-to-remove ref-idents))
+
+(defn vacuum [store]
+  (let [store-entity-idents     (entitydb-store->entity-idents-set store)
+        named-entity-idents     (entitydb-named->entity-idents-set store)
+        entity-idents-to-remove (get-entity-idents-to-remove store-entity-idents (:entitydb/relations store) named-entity-idents)]
+    (reduce
+     (fn [store' entity-ident]
+       (let [entity-type (:type entity-ident)
+             entity-id   (:id entity-ident)]
+         (-> store'
+             (dissoc-in [:entitydb/store entity-type entity-id])
+             (dissoc-in [:entitydb/relations entity-ident])
+             (dissoc-in [:entitydb.relations/reverse entity-ident])))) store entity-idents-to-remove)))
