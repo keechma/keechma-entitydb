@@ -200,7 +200,7 @@
                  [rel-name rel-pairs]         rel
                  [rel-pair-id rel-pair-paths] rel-pairs
                  rel-pair-path                rel-pair-paths]
-             {:entity-ident (->EntityIdent type rel-pair-id) 
+             {:entity-ident (->EntityIdent type rel-pair-id)
               :relation     rel-name
               :path         rel-pair-path})))
 
@@ -213,20 +213,35 @@
   "Return store with entity-ident cleared from collections. 
    Will return empty collection if entity-ident was the only element in collection."
   (let [collections' (reduce-kv (fn [acc k v]
-                                  (assoc acc k (assoc v :data (filter (fn [a] (not= entity-ident a)) (:data v))))) {} (:entitydb.named/collection store))]
+                                  (assoc acc k (assoc v :data (filter (fn [a] (not= entity-ident a)) (:data v)))))
+                                {}
+                                (:entitydb.named/collection store))]
     (assoc store :entitydb.named/collection collections')))
+
+(defn remove-dangling-reverse-relations [store entity-type id]
+  (let [reverse-relations  (:entitydb.relations/reverse store)
+        dissoc-vals        (for [[type rel] reverse-relations
+                                 [rel-name rel-pairs] rel
+                                 [rel-pair-id _] rel-pairs
+                                 :when (= entity-type rel-name)]
+                             [type rel-name rel-pair-id])
+        reverse-relations' (reduce (fn [acc v]
+                                     (dissoc-in acc (conj v id))) reverse-relations dissoc-vals)]
+    (if (empty? reverse-relations')
+      (dissoc store :entitydb.relations/reverse)
+      (assoc store :entitydb.relations/reverse reverse-relations'))))
 
 (defn remove-by-id* [store entity-type id]
   (if-let [entity (get-by-id store entity-type id)]
     (let [entity-ident      (entity->entity-ident entity)
-          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])  
+          reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])
           report            (get-report reverse-relations)]
       ;; For each reverse relation we have to clear the data on it's position in the 
       ;; owner entity. We also need to clear the cached :entitydb/relation
       {:store  (->  (reduce
                      (fn [store relation-report]
                        (let [related-entity-ident     (:entity-ident relation-report)
-                             {:keys [relation path]}  relation-report
+                             {:keys [relation path]} relation-report
                              related-entity-type      (:type related-entity-ident)
                              related-entity-id        (:id related-entity-ident)
                              related-entity           (get-in store [:entitydb/store related-entity-type related-entity-id])
@@ -234,19 +249,21 @@
                              last-path-segment        (last path)
                              last-path-segment-parent (get-in related-entity path-without-last)
                              updated-last-path-segment-parent
-                             (if (and (integer? last-path-segment) (sequential? last-path-segment-parent))
-                               (vec-remove last-path-segment last-path-segment-parent)
-                               (dissoc last-path-segment-parent last-path-segment))
+                                                      (if (and (integer? last-path-segment) (sequential? last-path-segment-parent))
+                                                        (vec-remove last-path-segment last-path-segment-parent)
+                                                        (dissoc last-path-segment-parent last-path-segment))
                              updated-related-entity   (assoc-in related-entity path-without-last updated-last-path-segment-parent)]
                          (-> store
                              (assoc-in [:entitydb/store related-entity-type related-entity-id] updated-related-entity)
                              (dissoc-in [:entitydb/relations related-entity-ident relation path]))))
                      store
                      report)
+                    (dissoc-in [:entitydb/relations entity-ident])
                     (dissoc-in [:entitydb.relations/reverse entity-ident])
                     (dissoc-in [:entitydb/store entity-type id])
                     (remove-ident-from-named-items entity-ident)
-                    (remove-ident-from-collections entity-ident))
+                    (remove-ident-from-collections entity-ident)
+                    (remove-dangling-reverse-relations entity-type id))
        :report report})
     {:store  store
      :report []}))
