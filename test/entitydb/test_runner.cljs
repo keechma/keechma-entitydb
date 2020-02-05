@@ -2,10 +2,7 @@
 (ns entitydb.test-runner
   (:require
    ;; require all the namespaces that you want to test
-   ;;[entitydb.entitydb-test]
-   [entitydb.config]
-   [entitydb.insert-test]
-   [entitydb.relations-test]
+   [entitydb.core]
    [figwheel.main.testing :refer [run-tests-async]]))
 
 (defn -main [& args]
