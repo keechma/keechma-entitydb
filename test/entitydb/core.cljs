@@ -37,6 +37,36 @@
     (is (= res {:entitydb/store {:user {1 {:id 1 :entitydb/id 1 :username "Retro" :entitydb/type :user}
                                         2 {:id 2 :entitydb/id 2 :username "Tibor" :entitydb/type :user}}}}))))
 
+(deftest insert-named-item
+  (let [db-with-items   (edb/insert-named-item {} :note :current {:id 1 :title "Note title"})
+        expected-layout {:entitydb/store
+                         {:note
+                          {1
+                           {:id            1
+                            :title         "Note title"
+                            :entitydb/id   1
+                            :entitydb/type :note}}}
+                         :entitydb.named/item
+                         {:current
+                          {:data (->EntityIdent :note 1)
+                           :meta nil}}}]
+    (is (= db-with-items expected-layout))))
+
+(deftest insert-named-item-with-meta
+  (let [db-with-items   (edb/insert-named-item {} :note :current {:id 1 :title "Note title"} {:foo "bar"})
+        expected-layout {:entitydb/store
+                         {:note
+                          {1
+                           {:id            1
+                            :title         "Note title"
+                            :entitydb/id   1
+                            :entitydb/type :note}}}
+                         :entitydb.named/item
+                         {:current
+                          {:data (->EntityIdent :note 1)
+                           :meta {:foo "bar"}}}}]
+    (is (= db-with-items expected-layout))))
+
 ;; REMOVE TESTS
 
 (deftest remove-item
@@ -72,6 +102,12 @@
       (is (nil? (get (:entitydb/relations db-with-deleted) (->EntityIdent :note 2))))
       ;; check if reverse relations which point to note with id 2 exist
       (is (nil? (:entitydb.relations/reverse res-2))))))
+
+;; GETTER TEST
+
+(deftest get-item-by-id
+  (let [store {:entitydb/store {:note {1 {:id 1 :title "Note title"}}}}]
+    (is (= (:title (edb/get-by-id store :note 1)) "Note title"))))
 
 ;; RELATIONS TEST
 
