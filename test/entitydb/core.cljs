@@ -38,7 +38,7 @@
                                         2 {:id 2 :entitydb/id 2 :username "Tibor" :entitydb/type :user}}}}))))
 
 (deftest insert-named-item
-  (let [db-with-items   (edb/insert-named-item {} :note :current {:id 1 :title "Note title"})
+  (let [db-with-items   (edb/insert-named-item {} :note :note/current {:id 1 :title "Note title"})
         expected-layout {:entitydb/store
                          {:note
                           {1
@@ -47,13 +47,13 @@
                             :entitydb/id   1
                             :entitydb/type :note}}}
                          :entitydb.named/item
-                         {:current
+                         {:note/current
                           {:data (->EntityIdent :note 1)
                            :meta nil}}}]
     (is (= db-with-items expected-layout))))
 
 (deftest insert-named-item-with-meta
-  (let [db-with-items   (edb/insert-named-item {} :note :current {:id 1 :title "Note title"} {:foo "bar"})
+  (let [db-with-items   (edb/insert-named-item {} :note :note/current {:id 1 :title "Note title"} {:foo "bar"})
         expected-layout {:entitydb/store
                          {:note
                           {1
@@ -62,7 +62,7 @@
                             :entitydb/id   1
                             :entitydb/type :note}}}
                          :entitydb.named/item
-                         {:current
+                         {:note/current
                           {:data (->EntityIdent :note 1)
                            :meta {:foo "bar"}}}}]
     (is (= db-with-items expected-layout))))
