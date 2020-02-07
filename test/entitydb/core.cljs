@@ -16,7 +16,7 @@
   (let [res (edb/insert {} :user {:id 1 :username "Retro"})]
     (is (= res {:entitydb/store {:user {1 {:id 1 :entitydb/id 1 :username "Retro" :entitydb/type :user}}}}))))
 
-(deftest insert-item-with-custom-id-fn
+(deftest insert-item-with-custom-id-fn-test
   (let [id-fn       (fn [item] (str (:id item) "-note"))
         with-schema (edb/insert-schema {} {:note {:entitydb/id id-fn}})
         with-data   (-> with-schema
@@ -37,7 +37,7 @@
     (is (= res {:entitydb/store {:user {1 {:id 1 :entitydb/id 1 :username "Retro" :entitydb/type :user}
                                         2 {:id 2 :entitydb/id 2 :username "Tibor" :entitydb/type :user}}}}))))
 
-(deftest insert-named-item
+(deftest insert-named-item-test
   (let [db-with-items   (edb/insert-named-item {} :note :note/current {:id 1 :title "Note title"})
         expected-layout {:entitydb/store
                          {:note
@@ -52,7 +52,7 @@
                            :meta nil}}}]
     (is (= db-with-items expected-layout))))
 
-(deftest insert-named-item-with-meta
+(deftest insert-named-item-with-meta-test
   (let [db-with-items   (edb/insert-named-item {} :note :note/current {:id 1 :title "Note title"} {:foo "bar"})
         expected-layout {:entitydb/store
                          {:note
@@ -69,7 +69,7 @@
 
 ;; REMOVE TESTS
 
-(deftest remove-item
+(deftest remove-item-test
   (let [with-schema (edb/insert-schema {} {:note    {:entitydb/relations
                                                      {:user  :user
                                                       :links {:entitydb.relation/path [:links :*]
@@ -105,11 +105,68 @@
 
 ;; GETTER TEST
 
-(deftest get-item-by-id
+(deftest get-item-by-id-test
   (let [store {:entitydb/store {:note {1 {:id 1 :title "Note title"}}}}]
     (is (= (:title (edb/get-by-id store :note 1)) "Note title"))))
 
 ;; RELATIONS TEST
+
+;; COLLECTIONS
+
+(deftest add-to-collection-test
+  (let [with-schema (edb/insert-schema {} data/schema)
+        with-data   (-> with-schema
+                        (edb/insert :user data/user-1-data))]
+    (let [append-data                                    (-> with-data
+                                                             (edb/get-by-id :user 1)
+                                                             (update-in [:posts :edges] (fn [i] (conj i {:cursor "3"
+                                                                                                         :node   {:slug  "my-post-5"
+                                                                                                                  :title "My Post #5"}}))))
+          prepend-data                                   (-> with-data
+                                                             (edb/get-by-id :user 1)
+                                                             (update-in [:posts :edges] (fn [i] (concat [{:cursor "3"
+                                                                                                          :node   {:slug  "my-post-5"
+                                                                                                                   :title "My Post #5"}}]
+                                                                                                        i))))
+
+          with-appended-data                             (edb/insert with-data :user append-data)
+          with-prepended-data                            (edb/insert with-data :user prepend-data)
+          expected-post-data                             {:slug          "my-post-5"
+                                                          :title         "My Post #5"
+                                                          :entitydb/id   "my-post-5"
+                                                          :entitydb/type :post}
+          expected-user-posts-with-appended-data         [{:cursor "1" :node (->EntityIdent :post "my-post-1")}
+                                                          {:cursor "2" :node (->EntityIdent :post "my-post-2")}
+                                                          {:cursor "3" :node (->EntityIdent :post "my-post-5")}]
+          expected-user-posts-with-prepended-data        [{:cursor "3" :node (->EntityIdent :post "my-post-5")}
+                                                          {:cursor "1" :node (->EntityIdent :post "my-post-1")}
+                                                          {:cursor "2" :node (->EntityIdent :post "my-post-2")}]
+          appended-post-data                             (edb/get-by-id with-appended-data :post "my-post-5")
+          prepended-post-data                            (edb/get-by-id with-prepended-data :post "my-post-5")
+          expected-relations-with-appended-data          {[:posts :edges 0 :node] (->EntityIdent :post "my-post-1")
+                                                          [:posts :edges 1 :node] (->EntityIdent :post "my-post-2")
+                                                          [:posts :edges 2 :node] (->EntityIdent :post "my-post-5")}
+          expected-relations-with-prepended-data         {[:posts :edges 0 :node] (->EntityIdent :post "my-post-5")
+                                                          [:posts :edges 1 :node] (->EntityIdent :post "my-post-1")
+                                                          [:posts :edges 2 :node] (->EntityIdent :post "my-post-2")}
+          expected-reverse-relations-with-appended-data  {:user {:posts {1 #{[:posts :edges 2 :node]}}}}
+          expected-reverse-relations-with-prepended-data {:user {:posts {1 #{[:posts :edges 0 :node]}}}}]
+      (is (= expected-post-data
+             appended-post-data))
+      (is (= expected-post-data
+             prepended-post-data))
+      (is (= expected-user-posts-with-appended-data
+             (get-in (edb/get-by-id with-appended-data :user 1) [:posts :edges])))
+      (is (= expected-user-posts-with-prepended-data
+             (get-in (edb/get-by-id with-prepended-data :user 1) [:posts :edges])))
+      (is (= expected-relations-with-appended-data
+             (get-in with-appended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
+      (is (= expected-relations-with-prepended-data
+             (get-in with-prepended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
+      (is (= expected-reverse-relations-with-appended-data
+             (get-in with-appended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")])))
+      (is (= expected-reverse-relations-with-prepended-data
+             (get-in with-prepended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")]))))))
 
 #_(deftest relations-between-users
     (let [with-schema (edb/insert-schema {} data/schema)
