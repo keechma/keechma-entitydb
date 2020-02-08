@@ -3,6 +3,7 @@
   (:require
    ;; require all the namespaces that you want to test
    [entitydb.core]
+   [entitydb.core-two]
    [figwheel.main.testing :refer [run-tests-async]]))
 
 (defn -main [& args]
