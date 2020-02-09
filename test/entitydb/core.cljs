@@ -109,9 +109,139 @@
   (let [store {:entitydb/store {:note {1 {:id 1 :title "Note title"}}}}]
     (is (= (:title (edb/get-by-id store :note 1)) "Note title"))))
 
+(deftest get-named-test
+  (let [store-with-item {:entitydb/store
+                         {:note
+                          {1
+                           {:id            1
+                            :title         "Note title"
+                            :entitydb/id   1
+                            :entitydb/type :note}}}
+                         :entitydb.named/item
+                         {:note/current
+                          {:data (->EntityIdent :note 1)
+                           :meta nil}}}]
+    (is (= (edb/get-named store-with-item :note/current)
+           {:entitydb/id 1 :entitydb/type :note :id 1 :title "Note title"}))))
+
+(deftest get-collection-test
+  (let [with-data       {:entitydb/store {:note
+                                          {1
+                                           {:id            1
+                                            :title         "Note title"
+                                            :entitydb/id   1
+                                            :entitydb/type :note}
+                                           2
+                                           {:id            2
+                                            :title         "Note title"
+                                            :entitydb/id   2
+                                            :entitydb/type :note}}}
+                         :entitydb.named/collection
+                                         {:note/favorites
+                                          {:data
+                                                 [(->EntityIdent :note 1)
+                                                  (->EntityIdent :note 2)]
+                                           :meta nil}}}
+
+        expected-layout [{:id            1
+                          :title         "Note title"
+                          :entitydb/id   1
+                          :entitydb/type :note}
+                         {:id            2
+                          :title         "Note title"
+                          :entitydb/id   2
+                          :entitydb/type :note}]]
+    (is (= (edb/get-collection with-data :note/favorites) expected-layout))))
+
 ;; RELATIONS TEST
 
 ;; COLLECTIONS
+
+(deftest inserting-nil-relation-one-removes-existing-relation-one
+  (let [with-schema     (edb/insert-schema {} {:note {:entitydb/relations
+                                                      {:user :user}}})
+        with-data       (-> with-schema
+                            (edb/insert :note {:id   1
+                                               :user {:id 1 :name "Foo"}}))
+        insert-user-nil (edb/insert with-data :note {:id 1 :user nil})]
+
+    (is (not (nil? (get-in with-data [:entitydb/relations (->EntityIdent :note 1)]))))
+
+    (is (nil? (get-in insert-user-nil [:entitydb/relations (->EntityIdent :note 1)])))
+
+    (is (not (nil? (get-in with-data [:entitydb.relations/reverse (->EntityIdent :user 1)]))))
+
+    (is (nil? (get-in insert-user-nil [:entitydb.relations/reverse (->EntityIdent :user 1)])))))
+
+(deftest inserting-item-with-no-related-data-leaves-existing-relations-intact
+  (let [with-schema      (edb/insert-schema {} {:note {:entitydb/relations
+                                                       {:user :user}}})
+        with-data        (-> with-schema
+                             (edb/insert :note {:id   1
+                                                :user {:id 1 :name "Foo"}}))
+        insert-note-data (edb/insert with-data :note {:id 1 :title "Note title"})]
+
+    (is (= (get-in with-data [:entitydb/relations (->EntityIdent :note 1)])
+           (get-in insert-note-data [:entitydb/relations (->EntityIdent :note 1)])))
+
+    (is (= (get-in with-data [:entitydb.relations/reverse (->EntityIdent :user 1)])
+           (get-in insert-note-data [:entitydb.relations/reverse (->EntityIdent :user 1)])))))
+
+(deftest circular-relations-test
+  (let
+    [with-schema                (edb/insert-schema {} {:note {:entitydb/relations
+                                                              {:links {:entitydb.relation/path [:links :*]
+                                                                       :entitydb.relation/type :link}}}
+                                                       :link {:entitydb/relations
+                                                              {:notes {:entitydb.relation/path [:notes :*]
+                                                                       :entitydb.relation/type :note}}}})
+     with-data                  (-> with-schema
+                                    (edb/insert :note {:id    1
+                                                       :title "Note #1"
+                                                       :links [{:id 1}
+                                                               {:id 2}]})
+                                    (edb/insert :note {:id    2
+                                                       :title "Note #2"
+                                                       :links [{:id 2}]})
+                                    (edb/insert :note {:id    3
+                                                       :title "Note #3"
+                                                       :links [{:id 1}
+                                                               {:id 3}]})
+                                    (edb/insert :link {:id    1
+                                                       :url   "http://google.com"
+                                                       :notes [{:id 1}
+                                                               {:id 3}]})
+                                    (edb/insert :link {:id    2
+                                                       :url   "http://bing.com"
+                                                       :notes [{:id 2}
+                                                               {:id    4
+                                                                :title "Note #4"}]})
+                                    (edb/insert :link {:id    3
+                                                       :url   "http://yahoo.com"
+                                                       :notes [{:id 3}]}))
+     note-1                     (edb/get-by-id with-data :note 1 [(q/include :links)])
+     note-1-reverse-from-link-1 (edb/get-by-id with-data :link 1 [(q/reverse-include :note)])
+     link-1                     (edb/get-by-id with-data :link 1 [(q/include :notes [(q/include :links [(q/include :notes)])])])
+     link-1-reverse-from-note-1 (edb/get-by-id with-data :note 1 [(q/reverse-include :link)])
+     link-1-from-note-1         (get-in note-1 [:links 0])
+     note-1-from-link-1         (get-in link-1 [:notes 0])]
+    (is (= "http://google.com"
+           (:url link-1-from-note-1)))
+    (is (= {:id            1
+            :title         "Note #1"
+            :entitydb/type :note
+            :entitydb/id   1}
+           (dissoc note-1-from-link-1 :links :entitydb.relations/reverse)))
+    (is (= (dissoc note-1 :links)
+           (dissoc (get-in note-1-reverse-from-link-1 [:entitydb.relations/reverse :note :links 1]) :links)))
+    (is (= (dissoc link-1 :notes)
+           (dissoc (get-in link-1-reverse-from-note-1 [:entitydb.relations/reverse :link :notes 1]) :notes)))
+    (is (= {:id            4
+            :title         "Note #4"
+            :entitydb/type :note
+            :entitydb/id   4}
+           (get-in link-1 [:notes 0 :links 1 :notes 1])))))
+
 
 (deftest add-to-collection-test
   (let [with-schema (edb/insert-schema {} data/schema)
