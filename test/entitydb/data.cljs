@@ -146,3 +146,9 @@
    :github-repository {:entitydb/relations
                        {[:committers :edges :* :node] :github-profile
                         :homepage :url}}})
+
+(def note-user-link-schema
+  {:note {:entitydb/relations
+          {:user  :user
+           :links {:entitydb.relation/path [:links :*]
+                   :entitydb.relation/type :link}}}})

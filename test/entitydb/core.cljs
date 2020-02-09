@@ -215,10 +215,7 @@
 
 
 (deftest relation-many-test
-  (let [with-schema    (edb/insert-schema {} {:note {:entitydb/relations
-                                                     {:user  :user
-                                                      :links {:entitydb.relation/path [:links :*]
-                                                              :entitydb.relation/type :link}}}})
+  (let [with-schema    (edb/insert-schema {} data/note-user-link-schema)
         with-data      (-> with-schema
                            (edb/insert :note {:id    1
                                               :title "Note title"
@@ -269,6 +266,47 @@
                :url           "http://yahoo.com"
                :entitydb/id   2
                :entitydb/type :link}])))))
+
+(deftest nested-relations-test
+  (let [with-schema               (edb/insert-schema {} (assoc data/note-user-link-schema :link {:entitydb/relations
+                                                                                                 {:user :user}}))
+        with-data                 (-> with-schema
+                                      (edb/insert :note {:id    1
+                                                         :title "Note title"
+                                                         :links [{:id 1}]})
+                                      (edb/insert :user {:id       1
+                                                         :username "Retro"})
+                                      (edb/insert :link {:id   1
+                                                         :url  "http://google.com"
+                                                         :user {:id 1}}))
+        link-1-relation-from-note (-> (edb/get-by-id with-data :note 1 [(q/include :links [(q/include :user)])])
+                                      (get-in [:links 0]))
+        user-from-link-1-relation (:user link-1-relation-from-note)
+        expected-user             {:id            1
+                                   :username      "Retro"
+                                   :entitydb/id   1
+                                   :entitydb/type :user}]
+    (is (= expected-user
+           user-from-link-1-relation))))
+
+(deftest tree-relations-test
+  (let [with-schema (edb/insert-schema {} {:note {:entitydb/relations
+                                                  {:notes {:entitydb.relation/path [:notes :*]
+                                                           :entitydb.relation/type :note}}}})
+        with-data   (-> with-schema
+                        (edb/insert-many :note [{:id    1
+                                                 :title "Note #1"
+                                                 :notes [{:id 2}]}
+                                                {:id    2
+                                                 :title "Note #2"
+                                                 :notes [{:id 3}]}
+                                                {:id    3
+                                                 :title "Note #3"}]))
+        note-1 (edb/get-by-id with-data :note 1 [(q/include :notes [(q/include :notes)])])]
+    (is (= "Note #2"
+           (get-in note-1 [:notes 0 :title])))
+    (is (= "Note #3"
+           (get-in note-1 [:notes 0 :notes 0 :title])))))
 
 #_(deftest relations-between-users
     (let [with-schema (edb/insert-schema {} data/schema)
