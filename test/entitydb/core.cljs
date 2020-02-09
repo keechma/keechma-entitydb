@@ -109,7 +109,7 @@
   (let [store {:entitydb/store {:note {1 {:id 1 :title "Note title"}}}}]
     (is (= (:title (edb/get-by-id store :note 1)) "Note title"))))
 
-(deftest get-named-test
+(deftest get-named-item-test
   (let [store-with-item {:entitydb/store
                          {:note
                           {1
@@ -121,7 +121,7 @@
                          {:note/current
                           {:data (->EntityIdent :note 1)
                            :meta nil}}}]
-    (is (= (edb/get-named store-with-item :note/current)
+    (is (= (edb/get-named-item store-with-item :note/current)
            {:entitydb/id 1 :entitydb/type :note :id 1 :title "Note title"}))))
 
 (deftest get-collection-test
@@ -432,11 +432,85 @@
                                                  :notes [{:id 3}]}
                                                 {:id    3
                                                  :title "Note #3"}]))
-        note-1 (edb/get-by-id with-data :note 1 [(q/include :notes [(q/include :notes)])])]
+        note-1      (edb/get-by-id with-data :note 1 [(q/include :notes [(q/include :notes)])])]
     (is (= "Note #2"
            (get-in note-1 [:notes 0 :title])))
     (is (= "Note #3"
            (get-in note-1 [:notes 0 :notes 0 :title])))))
+
+(deftest remove-collection-test
+  (let [with-schema         (edb/insert-schema {} {})
+        with-data           (-> with-schema
+                                (edb/insert :note {:id    1
+                                                   :title "Note title"})
+                                (edb/insert-named-item :note :note/current {:id 1})
+                                (edb/insert-named-item :note :note/pinned {:id 2})
+                                (edb/insert-collection :note :note/latest [{:id 1}
+                                                                           {:id 2}])
+                                (edb/insert-collection :note :note/starred [{:id 2}
+                                                                            {:id 3}]))
+        with-deleted-data   (-> with-data
+                                (edb/remove-named-item :note/current)
+                                (edb/remove-collection :note/latest))
+        expected-store      {:note {1 {:id            1
+                                       :title         "Note title"
+                                       :entitydb/id   1
+                                       :entitydb/type :note}
+                                    2 {:id            2
+                                       :entitydb/id   2
+                                       :entitydb/type :note}
+                                    3 {:id            3
+                                       :entitydb/id   3
+                                       :entitydb/type :note}}}
+        expected-named      {:note/pinned
+                             {:data (->EntityIdent :note 2)
+                              :meta nil}}
+        expected-collection {:note/starred
+                             {:data [(->EntityIdent :note 2)
+                                     (->EntityIdent :note 3)]
+                              :meta nil}}]
+    (is (= expected-store
+           (:entitydb/store with-deleted-data)))
+    (is (= expected-named
+           (:entitydb.named/item with-deleted-data)))
+    (is (= expected-collection
+           (:entitydb.named/collection with-deleted-data)))))
+
+(deftest vacuum-collection-test
+  (let [with-schema         (edb/insert-schema {} {})
+        with-data           (-> with-schema
+                                (edb/insert :note {:id    1
+                                                   :title "Note title"})
+                                (edb/insert-named-item :note :note/current {:id 1})
+                                (edb/insert-named-item :note :note/pinned {:id 2})
+                                (edb/insert-collection :note :note/latest [{:id 1}
+                                                                           {:id 2}])
+                                (edb/insert-collection :note :note/starred [{:id 2}
+                                                                            {:id 3}]))
+        with-deleted-data   (-> with-data
+                                (edb/remove-named-item :note/current)
+                                (edb/remove-collection :note/latest))
+        expected-store      {:note {2 {:id            2
+                                       :entitydb/id   2
+                                       :entitydb/type :note}
+                                    3 {:id            3
+                                       :entitydb/id   3
+                                       :entitydb/type :note}}}
+        expected-named      {:note/pinned
+                             {:data (->EntityIdent :note 2)
+                              :meta nil}}
+        expected-collection {:note/starred
+                             {:data [(->EntityIdent :note 2)
+                                     (->EntityIdent :note 3)]
+                              :meta nil}}
+        with-vacuumed-data (-> with-deleted-data
+                               (edb/vacuum))]
+    (is (= expected-store
+           (:entitydb/store with-vacuumed-data)))
+    (is (= expected-named
+           (:entitydb.named/item with-vacuumed-data)))
+    (is (= expected-collection
+           (:entitydb.named/collection with-vacuumed-data)))))
 
 #_(deftest relations-between-users
     (let [with-schema (edb/insert-schema {} data/schema)
