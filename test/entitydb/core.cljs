@@ -503,14 +503,33 @@
                              {:data [(->EntityIdent :note 2)
                                      (->EntityIdent :note 3)]
                               :meta nil}}
-        with-vacuumed-data (-> with-deleted-data
-                               (edb/vacuum))]
+        with-vacuumed-data  (-> with-deleted-data
+                                (edb/vacuum))]
     (is (= expected-store
            (:entitydb/store with-vacuumed-data)))
     (is (= expected-named
            (:entitydb.named/item with-vacuumed-data)))
     (is (= expected-collection
            (:entitydb.named/collection with-vacuumed-data)))))
+
+(deftest removing-item-removes-its-id-from-collections
+  (let [with-schema              (edb/insert-schema {} {})
+        with-data                (-> with-schema
+                                     (edb/insert-many :note [{:id 1}
+                                                             {:id 2}])
+                                     (edb/insert-named-item :note :note/current {:id 1})
+                                     (edb/insert-collection :note :note/list [{:id 1} {:id 2}]))
+        with-deleted-data (edb/remove-by-id with-data :note 1)
+        expected-store           {:note {2 {:id            2
+                                            :entitydb/id   2
+                                            :entitydb/type :note}}}
+        expected-collection {:note/list
+                             {:data [(->EntityIdent :note 2)]
+                              :meta nil}}]
+    (is (= expected-store
+           (:entitydb/store with-deleted-data)))
+    (is (= expected-collection
+           (:entitydb.named/collection with-deleted-data)))))
 
 #_(deftest relations-between-users
     (let [with-schema (edb/insert-schema {} data/schema)
