@@ -302,8 +302,8 @@
                {:data (map entity->entity-ident entities)
                 :meta collection-meta}))))
 
-(defn get-named
-  ([store entity-name] (get-named store entity-name nil))
+(defn get-named-item
+  ([store entity-name] (get-named-item store entity-name nil))
   ([store entity-name query]
    (when-let [entity-ident (get-in store [:entitydb.named/item entity-name :data])]
      (get-by-id store (:type entity-ident) (:id entity-ident) query))))
@@ -316,7 +316,7 @@
       #(get-by-id store (:type %) (:id %) query)
       entity-idents))))
 
-(defn remove-named [store entity-name]
+(defn remove-named-item [store entity-name]
   (dissoc-in store [:entitydb.named/item entity-name]))
 
 (defn remove-collection [store collection-name]
