@@ -26,8 +26,7 @@
                 (map 
                  (fn [[relation-name relation]]
                    (let [prepared-relation (-> (if (keyword? relation) {:entitydb.relation/type relation} relation)
-                                               (update :entitydb.relation/path #(or % (vec (flatten [relation-name]))))
-                                               (update :entitydb.relation/processor #(or % identity)))] 
+                                               (update :entitydb.relation/path #(or % (vec (flatten [relation-name])))))]
                      (when (= :* (first (:entitydb.relation/path prepared-relation)))
                        (throw (entitydb-ex-info "Relation's :entitydb.relation/path can't start with :*" 
                                                 {:entitydb/relation      prepared-relation 
@@ -119,7 +118,7 @@
   ([store entity-type entity related-entities]
    (let [entity-schema (get-in store [:entitydb/schema entity-type])
          processor     (or (:entitydb/processor entity-schema)
-                           (partial assoc-entitydb-id :id)) 
+                           (partial assoc-entitydb-id :id))
          relations     (:entitydb/relations entity-schema)
          entity'       (-> (processor entity)
                            (assoc :entitydb/type (get-entity-type entity-type entity)))]
