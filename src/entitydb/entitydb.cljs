@@ -358,14 +358,3 @@
              (dissoc-in [:entitydb/store entity-type entity-id])
              (dissoc-in [:entitydb/relations entity-ident])
              (dissoc-in [:entitydb.relations/reverse entity-ident])))) store entity-idents-to-remove)))
-
-(defn wrap-query-fn [path query-fn]
-  (fn [store & args]
-    (let [edb-store (get-in store [path])]
-      (apply query-fn edb-store args))))
-
-(defn wrap-mutation-fn [path mutation-fn]
-  (fn [store & args]
-    (let [edb-store (get-in store [path])
-          result (apply mutation-fn edb-store args)]
-      (assoc-in store path result))))

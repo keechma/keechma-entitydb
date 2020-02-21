@@ -3,8 +3,8 @@
   (:require
    ;; require all the namespaces that you want to test
    [entitydb.core]
+   [entitydb.adapted-api-test]
    [figwheel.main.testing :refer [run-tests-async]]))
 
 (defn -main [& args]
   (run-tests-async 5000))
-

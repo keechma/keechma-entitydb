@@ -1,33 +1,38 @@
 (ns entitydb.entitydb)
 
-(defn wrap-mutation-fn [path name])
-(defn wrap-query-fn [path name])
+(def edb-fns '{:mutation [insert
+                          insert-schema
+                          insert-many
+                          insert-named-item
+                          insert-collection
+                          remove-by-id
+                          remove-named-item
+                          remove-collection
+                          vacuum]
+               :query    [get-by-id
+                          get-named-item
+                          get-collection]})
 
-(def fns {:mutation #{"insert"
-                      "insert-schema"
-                      "insert-many"
-                      "insert-named-item"
-                      "insert-collection"
-                      "remove-by-id"
-                      "remove-named"
-                      "remove-collection"
-                      "vacuum"}
-          :query    #{"get-by-id"
-                      "get-named"
-                      "get-collection"}})
+(defn edb-fn
+  [fn-sym]
+  (symbol "entitydb.entitydb" (name fn-sym)))
 
-(defmacro export-api! [path]
-  (let [mutation-defs (map
-                        (fn [n]
-                          (let [fn-name (symbol n)
-                                origin-name (symbol (str "entitydb.entitydb/" n))]
-                            `(def ~fn-name (entitydb.entitydb/wrap-mutation-fn ~path ~origin-name))))
-                        (:mutation fns))
-        query-defs (map
-                        (fn [n]
-                          (let [fn-name (symbol n)
-                                origin-name (symbol (str "entitydb.entitydb/" n))]
-                            `(def ~fn-name (entitydb.entitydb/wrap-query-fn ~path ~origin-name))))
-                        (:query fns))]
-    `(do
-       ~@(concat mutation-defs query-defs))))
+(defn mutation-defn
+  [path fn-sym]
+  `(defn ~fn-sym [store# & args#]
+     (->> (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)
+          (assoc-in store# ~path))))
+
+(defn query-defn
+  [path fn-sym]
+  `(defn ~fn-sym [store# & args#]
+     (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)))
+
+(defmacro def-adapted-api
+  "Defines `entitydb` api functions in the current namespace. Adapts
+  each to expect the `store` argument to be a map that embeds an
+  `entity-db` at key-path `path`."
+  [path]
+  `(do
+     ~@(map (partial mutation-defn path) (:mutation edb-fns))
+     ~@(map (partial query-defn path) (:query edb-fns))))
