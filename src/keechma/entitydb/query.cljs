@@ -6,6 +6,7 @@
 (declare resolve-queries)
 
 (defn include
+  "Includes a relationsip by name"
   ([relation] (include relation nil))
   ([relation subquery]
    {::type             :include
@@ -13,6 +14,7 @@
     :entitydb/relation relation}))
 
 (defn recur-on
+  "Recurs on a relationship by name and repeats a query. Recursion is unbounded by default, but can be limited in case of circular relationships."
   ([relation] (recur-on relation js/Infinity))
   ([relation recur-limit]
    {::type             :recur-on
@@ -20,6 +22,7 @@
     :entitydb/relation relation}))
 
 (defn reverse-include
+  "Includes all entities of a given type that point to the current entity."
   ([entity-type] (reverse-include entity-type nil))
   ([entity-type subquery]
    {::type :reverse
@@ -27,6 +30,7 @@
     :entitydb/type entity-type}))
 
 (defn switch [switch-queries]
+  "Based on the relation entity type, it will perform a different query"
   {::type :switch
    ::switch-queries switch-queries})
 
