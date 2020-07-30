@@ -202,4 +202,31 @@ Schema needs to be inserted in EntityDB before you can start using it:
                                :link {:entitydb/id :url}}))
 ```
 
+## Querying relationships
+
+Related entities are not included by default when you get data from EntityDB. They need to be included explicitly. 
+
+```clojure
+(def db (edb/insert-schema {} {:note {:entitydb/relations {:notes {:entitydb.relation/path [:notes :*]
+                                                                   :entitydb.relation/type :note}}}}))
+(def db-1 (edb/insert-entity db :note {:id 1
+                                       :title "Note #1"
+                                       :links [{:id 1
+                                                :url "http://www.google.com"}
+                                               {:id 2
+                                                :url "http://www.yahoo.com"}]}))
+(edb/get-entity db :note 1) ;; Returns {:id 1 :title "Note #1" :links [(->EntityIdent :link 1) (->EntityIdent :link 2)] :entitydb/id 1 :entitydb/type :note}
+```
+
+Getting data from EntityDB without specifying which relations to include returns only idents instead of items.
+
+### Include query
+
+You will use the `include` query most of the time. It is used to include related entities.
+
+### Recur-on query
+
+### Switch query
+
+### Reverse-include query
 
