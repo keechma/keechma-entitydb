@@ -205,14 +205,16 @@
               :relation     rel-name
               :path         rel-pair-path})))
 
-(defn remove-ident-from-named-items [store entity-ident]
+(defn remove-ident-from-named-items
   "Return store without named-items that contain passed entity-ident."
+  [store entity-ident]
   (let [named-items' (into {} (filter (fn [[k v]] (not= entity-ident (:data v))) (:entitydb.named/item store)))]
     (assoc store :entitydb.named/item named-items')))
 
-(defn remove-ident-from-collections [store entity-ident]
+(defn remove-ident-from-collections
   "Return store with entity-ident cleared from collections.
    Will return empty collection if entity-ident was the only element in collection."
+  [store entity-ident]
   (let [collections' (reduce-kv (fn [acc k v]
                                   (assoc acc k (assoc v :data (filter (fn [a] (not= entity-ident a)) (:data v)))))
                        {}
