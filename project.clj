@@ -4,6 +4,4 @@
   :license {:name "MIT License"
             :url "https://opensource.org/licenses/MIT"}
   :source-paths ["src"]
-  :dependencies [[funcool/promesa "5.1.0"]
-                 [medley "1.3.0"]
-                 [org.clojure/core.async "1.3.610"]])
+  :dependencies [[medley "1.3.0"]])
