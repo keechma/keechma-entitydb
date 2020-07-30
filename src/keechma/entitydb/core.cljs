@@ -116,19 +116,21 @@
 (defn prepare-insert
   ([store entity-type entity] (prepare-insert store entity-type entity {}))
   ([store entity-type entity related-entities]
-   (let [entity-schema (get-in store [:entitydb/schema entity-type])
+   (let [entity-type'  (get-entity-type entity-type entity)
+         entity-schema (get-in store [:entitydb/schema entity-type'])
          processor     (or (:entitydb/processor entity-schema)
                          (partial assoc-entitydb-id :id))
          relations     (:entitydb/relations entity-schema)
          entity'       (-> (processor entity)
-                           (assoc :entitydb/type (get-entity-type entity-type entity)))]
+                           (assoc :entitydb/type entity-type'))]
+
      (reduce-kv
        (fn [{:keys [entity related-entities]} k v]
          (prepare-relations store entity related-entities v
            {:iter-path     (:entitydb.relation/path v)
             :path          []
             :relation-name k
-            :ident         (entity->entity-ident entity')}))
+            :ident         (entity->entity-ident entity)}))
        {:entity           entity'
         :related-entities related-entities}
        relations))))
@@ -209,7 +211,7 @@
     (assoc store :entitydb.named/item named-items')))
 
 (defn remove-ident-from-collections [store entity-ident]
-  "Return store with entity-ident cleared from collections. 
+  "Return store with entity-ident cleared from collections.
    Will return empty collection if entity-ident was the only element in collection."
   (let [collections' (reduce-kv (fn [acc k v]
                                   (assoc acc k (assoc v :data (filter (fn [a] (not= entity-ident a)) (:data v)))))
@@ -235,8 +237,8 @@
     (let [entity-ident      (entity->entity-ident entity)
           reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])
           report            (get-report reverse-relations)]
-      ;; For each reverse relation we have to clear the data on it's position in the 
-      ;; owner entity. We also need to clear the cached :keechma.entitydb/relation
+      ;; For each reverse relation we have to clear the data on it's position in the
+      ;; owner entity. We also need to clear the cached :entitydb/relation
       {:store  (-> (reduce
                      (fn [store relation-report]
                        (let [related-entity-ident     (:entity-ident relation-report)
