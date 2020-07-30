@@ -2,7 +2,7 @@
   (:require [keechma.entitydb.internal :refer [EntityIdent entity? entity-ident? entity->entity-ident]]
             [clojure.set :as set]))
 
-(declare get-by-id)
+(declare get-entity)
 (declare resolve-queries)
 
 (defn include
@@ -35,7 +35,7 @@
         related-entities (get-in store [:entitydb/relations entity-ident relation])]
     (reduce-kv
      (fn [entity' path related-entity-ident]
-       (assoc-in entity' path (get-by-id store (:type related-entity-ident) (:id related-entity-ident) queries)))
+       (assoc-in entity' path (get-entity store (:type related-entity-ident) (:id related-entity-ident) queries)))
      entity
      related-entities)))
 
@@ -61,7 +61,7 @@
      (fn [entity relation-name relation-data]
        (let [reverse-related-ids (keys relation-data)
              reverse-related-entities
-             (into {} (map (fn [id] [id (get-by-id store reverse-entity-type id subquery)]) reverse-related-ids))]
+             (into {} (map (fn [id] [id (get-entity store reverse-entity-type id subquery)]) reverse-related-ids))]
          (assoc-in entity [:entitydb.relations/reverse reverse-entity-type relation-name] reverse-related-entities)))
      entity
      reverse-related)))
@@ -119,8 +119,8 @@
      entity
      queries')))
 
-(defn get-by-id 
-  ([store entity-type id] (get-by-id store entity-type id nil))
+(defn get-entity
+  ([store entity-type id] (get-entity store entity-type id nil))
   ([store entity-type id queries]
    (let [entity (get-in store [:entitydb/store entity-type id])]
      (resolve-queries store entity queries))))

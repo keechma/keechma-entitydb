@@ -10,7 +10,7 @@
                                                entity-ident?
                                                entitydb-ex-info]]))
 
-(def get-by-id query/get-by-id)
+(def get-entity query/get-entity)
 
 (declare prepare-insert)
 
@@ -193,7 +193,7 @@
   (let [prepared (prepare-insert store entity-type data)]
     (insert-prepared store prepared)))
 
-(defn insert [store entity-type data]
+(defn insert-entity [store entity-type data]
   (:store (insert* store entity-type data)))
 
 (defn get-report [reverse-relations]
@@ -235,7 +235,7 @@
       (assoc store :entitydb.relations/reverse reverse-relations'))))
 
 (defn remove-by-id* [store entity-type id]
-  (if-let [entity (get-by-id store entity-type id)]
+  (if-let [entity (get-entity store entity-type id)]
     (let [entity-ident      (entity->entity-ident entity)
           reverse-relations (get-in store [:entitydb.relations/reverse entity-ident])
           report            (get-report reverse-relations)]
@@ -271,15 +271,15 @@
     {:store  store
      :report []}))
 
-(defn remove-by-id [store entity-type id]
+(defn remove-entity [store entity-type id]
   (:store (remove-by-id* store entity-type id)))
 
-(defn insert-many [store entity-type entities]
-  (reduce (fn [acc entity] (insert acc entity-type entity)) store entities))
+(defn insert-entities [store entity-type entities]
+  (reduce (fn [acc entity] (insert-entity acc entity-type entity)) store entities))
 
-(defn insert-named-item
+(defn insert-named
   ([store entity-type entity-name data]
-   (insert-named-item store entity-type entity-name data nil))
+   (insert-named store entity-type entity-name data nil))
   ([store entity-type entity-name data named-meta]
    (let [{:keys [store entity]} (insert* store entity-type data)]
      (assoc-in store
@@ -305,21 +305,21 @@
        {:data (map entity->entity-ident entities)
         :meta collection-meta}))))
 
-(defn get-named-item
-  ([store entity-name] (get-named-item store entity-name nil))
+(defn get-named
+  ([store entity-name] (get-named store entity-name nil))
   ([store entity-name query]
    (when-let [entity-ident (get-in store [:entitydb.named/item entity-name :data])]
-     (get-by-id store (:type entity-ident) (:id entity-ident) query))))
+     (get-entity store (:type entity-ident) (:id entity-ident) query))))
 
 (defn get-collection
   ([store collection-name] (get-collection store collection-name nil))
   ([store collection-name query]
    (when-let [entity-idents (get-in store [:entitydb.named/collection collection-name :data])]
      (mapv
-       #(get-by-id store (:type %) (:id %) query)
+       #(get-entity store (:type %) (:id %) query)
        entity-idents))))
 
-(defn remove-named-item [store entity-name]
+(defn remove-named [store entity-name]
   (dissoc-in store [:entitydb.named/item entity-name]))
 
 (defn remove-collection [store collection-name]

@@ -8,11 +8,11 @@
                       "insert-many"
                       "insert-named-item"
                       "insert-collection"
-                      "remove-by-id"
+                      "remove-entity"
                       "remove-named"
                       "remove-collection"
                       "vacuum"}
-          :query    #{"get-by-id"
+          :query    #{"get-entity"
                       "get-named"
                       "get-collection"}})
 
