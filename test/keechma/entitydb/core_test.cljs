@@ -1,11 +1,11 @@
-(ns entitydb.core
+(ns keechma.entitydb.core-test
   (:require
     [cljs.test :refer-macros [deftest is testing use-fixtures]]
-    [entitydb.internal :refer [->EntityIdent]]
-    [entitydb.entitydb :as edb]
-    [entitydb.query :as q]
-    [entitydb.data :as data]
-    [entitydb.util :refer [log]]))
+    [keechma.entitydb.internal :refer [->EntityIdent]]
+    [keechma.entitydb.core :as edb]
+    [keechma.entitydb.query :as q]
+    [keechma.entitydb.data :as data]
+    [keechma.entitydb.util :refer [log]]))
 
 (use-fixtures :once
               {:before (fn [] (js/console.clear))})

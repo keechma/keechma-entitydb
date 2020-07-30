@@ -1,4 +1,4 @@
-(ns entitydb.internal)
+(ns keechma.entitydb.internal)
 
 (defrecord EntityIdent [type id])
 

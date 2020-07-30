@@ -1,4 +1,4 @@
-(ns entitydb.entitydb)
+(ns keechma.entitydb.core)
 
 (defn wrap-mutation-fn [path name])
 (defn wrap-query-fn [path name])
@@ -20,14 +20,14 @@
   (let [mutation-defs (map
                         (fn [n]
                           (let [fn-name (symbol n)
-                                origin-name (symbol (str "entitydb.entitydb/" n))]
-                            `(def ~fn-name (entitydb.entitydb/wrap-mutation-fn ~path ~origin-name))))
+                                origin-name (symbol (str "keechma.entitydb.core/" n))]
+                            `(def ~fn-name (keechma.entitydb.core/wrap-mutation-fn ~path ~origin-name))))
                         (:mutation fns))
         query-defs (map
                         (fn [n]
                           (let [fn-name (symbol n)
-                                origin-name (symbol (str "entitydb.entitydb/" n))]
-                            `(def ~fn-name (entitydb.entitydb/wrap-query-fn ~path ~origin-name))))
+                                origin-name (symbol (str "keechma.entitydb.core/" n))]
+                            `(def ~fn-name (keechma.entitydb.core/wrap-query-fn ~path ~origin-name))))
                         (:query fns))]
     `(do
        ~@(concat mutation-defs query-defs))))
