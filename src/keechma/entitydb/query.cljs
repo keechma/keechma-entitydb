@@ -1,11 +1,12 @@
-(ns entitydb.query
-  (:require [entitydb.internal :refer [EntityIdent entity? entity-ident? entity->entity-ident]]
+(ns keechma.entitydb.query
+  (:require [keechma.entitydb.internal :refer [EntityIdent entity? entity-ident? entity->entity-ident]]
             [clojure.set :as set]))
 
-(declare get-by-id)
+(declare get-entity)
 (declare resolve-queries)
 
 (defn include
+  "Includes a relationship by name"
   ([relation] (include relation nil))
   ([relation subquery]
    {::type             :include
@@ -13,6 +14,7 @@
     :entitydb/relation relation}))
 
 (defn recur-on
+  "Recurs on a relationship by name and repeats a query. Recursion is unbounded by default, but can be limited in case of circular relationships."
   ([relation] (recur-on relation js/Infinity))
   ([relation recur-limit]
    {::type             :recur-on
@@ -20,13 +22,16 @@
     :entitydb/relation relation}))
 
 (defn reverse-include
+  "Includes all entities of a given type that point to the current entity."
   ([entity-type] (reverse-include entity-type nil))
   ([entity-type subquery]
    {::type :reverse
     ::subquery subquery
     :entitydb/type entity-type}))
 
-(defn switch [switch-queries]
+(defn switch
+  "Based on the relation entity type, it will perform a different query"
+  [switch-queries]
   {::type :switch
    ::switch-queries switch-queries})
 
@@ -35,7 +40,7 @@
         related-entities (get-in store [:entitydb/relations entity-ident relation])]
     (reduce-kv
      (fn [entity' path related-entity-ident]
-       (assoc-in entity' path (get-by-id store (:type related-entity-ident) (:id related-entity-ident) queries)))
+       (assoc-in entity' path (get-entity store (:type related-entity-ident) (:id related-entity-ident) queries)))
      entity
      related-entities)))
 
@@ -46,7 +51,6 @@
 (defmethod resolve-query :switch [store entity query _] 
   (let [entity-type (:entitydb/type entity)
         queries (get-in query [::switch-queries entity-type])]
-    (println queries)
     (resolve-queries store entity queries)))
 
 (defmethod resolve-query :include [store entity query _] 
@@ -61,7 +65,7 @@
      (fn [entity relation-name relation-data]
        (let [reverse-related-ids (keys relation-data)
              reverse-related-entities
-             (into {} (map (fn [id] [id (get-by-id store reverse-entity-type id subquery)]) reverse-related-ids))]
+             (into {} (map (fn [id] [id (get-entity store reverse-entity-type id subquery)]) reverse-related-ids))]
          (assoc-in entity [:entitydb.relations/reverse reverse-entity-type relation-name] reverse-related-entities)))
      entity
      reverse-related)))
@@ -119,8 +123,8 @@
      entity
      queries')))
 
-(defn get-by-id 
-  ([store entity-type id] (get-by-id store entity-type id nil))
+(defn get-entity
+  ([store entity-type id] (get-entity store entity-type id nil))
   ([store entity-type id queries]
    (let [entity (get-in store [:entitydb/store entity-type id])]
      (resolve-queries store entity queries))))

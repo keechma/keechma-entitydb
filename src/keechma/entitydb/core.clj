@@ -1,26 +1,26 @@
-(ns entitydb.entitydb)
+(ns keechma.entitydb.core)
 
-(def edb-fns '{:mutation [insert
+(def edb-fns '{:mutation [insert-entity
                           insert-schema
-                          insert-many
-                          insert-named-item
+                          insert-entities
+                          insert-named
                           insert-collection
-                          remove-by-id
-                          remove-named-item
+                          remove-entity
+                          remove-named
                           remove-collection
                           vacuum]
-               :query    [get-by-id
-                          get-named-item
+               :query    [get-entity
+                          get-named
                           get-collection]})
 
 (defn edb-fn
   [fn-sym]
-  (symbol "entitydb.entitydb" (name fn-sym)))
+  (symbol "keechma.entitydb.core" (name fn-sym)))
 
 (defn mutation-defn
   [path fn-sym]
   `(defn ~fn-sym [store# & args#]
-     (->> (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)
+    (->> (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)
           (assoc-in store# ~path))))
 
 (defn query-defn

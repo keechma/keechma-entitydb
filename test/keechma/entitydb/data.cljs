@@ -1,5 +1,5 @@
-(ns entitydb.data
-  (:require [entitydb.entitydb :as edb]))
+(ns keechma.entitydb.data
+  (:require [keechma.entitydb.core :as edb]))
 
 
 (def user-1-data
@@ -38,7 +38,7 @@
                                                                                  :node   {:username "tiborkr"}}]}}}
                                               {:cursor "2"
                                                :node   {:id   2
-                                                        :name "entitydb"}}]}}
+                                                        :name "keechma.entitydb"}}]}}
    :urls           [{:name "Homepage" :url "https://retroaktive.me"}
                     {:name "Keechma" :url "https://keechma.com"}]
    :groups         [{:name    "Keechma Developers"
@@ -112,11 +112,11 @@
      [{:cursor 1 :node {:username "retro"}}
       {:cursor 2 :node {:username "tiborkr"}}]}}
    {:id   2
-    :name "entitydb"}])
+    :name "keechma.entitydb"}])
 
 (def github-repositories-data-2
   [{:id   3
-    :name "entitydb"}])
+    :name "keechma.entitydb"}])
 
 (def schema 
   {:user              {:entitydb/relations

@@ -1,4 +1,4 @@
-(ns entitydb.util)
+(ns keechma.entitydb.util)
 
 (defn vec-remove
   "remove elem in coll"
