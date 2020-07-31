@@ -1,5 +1,7 @@
 # keechma/entitydb
 
+[![Clojars Project](https://img.shields.io/clojars/v/keechma/entitydb.svg)](https://clojars.org/keechma/entitydb)
+
 EntityDB is a client side database and normalization engine. This is a second iteration of EntityDB, original can be found at https://github.com/keechma/entitydb
 
 ## Motivation
