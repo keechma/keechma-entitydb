@@ -206,16 +206,28 @@ Schema needs to be inserted in EntityDB before you can start using it:
 
 Related entities are not included by default when you get data from EntityDB. They need to be included explicitly. 
 
+
 ```clojure
-(def db (edb/insert-schema {} {:note {:entitydb/relations {:notes {:entitydb.relation/path [:notes :*]
-                                                                   :entitydb.relation/type :note}}}}))
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+(def db (edb/insert-schema {} {:note {:entitydb/relations {:links {:entitydb.relation/path [:links :*]
+                                                                   :entitydb.relation/type :link}}}}))
 (def db-1 (edb/insert-entity db :note {:id 1
                                        :title "Note #1"
                                        :links [{:id 1
                                                 :url "http://www.google.com"}
                                                {:id 2
                                                 :url "http://www.yahoo.com"}]}))
-(edb/get-entity db :note 1) ;; Returns {:id 1 :title "Note #1" :links [(->EntityIdent :link 1) (->EntityIdent :link 2)] :entitydb/id 1 :entitydb/type :note}
+(edb/get-entity db-1 :note 1) 
+
+;; {:id 1 
+;;  :title "Note #1" 
+;;  :links [(->EntityIdent :link 1) 
+;;          (->EntityIdent :link 2)] 
+;;  :entitydb/id 1 
+;;  :entitydb/type :note}
 ```
 
 Getting data from EntityDB without specifying which relations to include returns only idents instead of items.
@@ -224,9 +236,246 @@ Getting data from EntityDB without specifying which relations to include returns
 
 You will use the `include` query most of the time. It is used to include related entities.
 
+```
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+...
+
+(edb/get-entity db-1 :note 1 [(q/include :links)])
+
+;;  {:id 1,
+;;   :title "Note #1",
+;;   :links
+;;   [{:id 1,
+;;     :url "http://www.google.com",
+;;     :foo "bar",
+;;     :entitydb/id 1,
+;;     :entitydb/type :link}
+;;    {:id 2,
+;;     :url "http://www.yahoo.com",
+;;     :foo "baz",
+;;     :entitydb/id 2,
+;;     :entitydb/type :link}], 
+;;   :entitydb/id 1, 
+;;   :entitydb/type :note}
+```
+Important thing to note here is that `include` by default resolves only first level of relations but can be extended to
+suit your need. For example, if we expand schema from previous example with `user` relation
+
+```
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+(def db (edb/insert-schema {} {:note {:entitydb/relations {:links {:entitydb.relation/path [:links :*]
+                                                                   :entitydb.relation/type :link}}}
+                               :link {:entitydb/relations {:user :user}}})) 
+
+// note: defining relation as {:foo :bar} is a shorthand for {:foo {:entitydb.relation/path [:bar] :entitydb.relation/type :bar}} 
+
+(def db-1 
+ (-> db 
+  (edb/insert-entity :note {:id        1
+                            :title     "Note title"
+                            :links     [{:id 1}]})
+  (edb/insert-entity :user {:id        1
+                            :username  "Retro"})
+  (edb/insert-entity :link {:id        1
+                            :url       "http://keechma.com"
+                            :user      {:id 1}}))
+
+(edb/get-entity db-1 :note 1 [(q/include :links [(q/include :user)])])
+
+;;  {:id 1,
+;;   :title "Note title",
+;;   :links
+;;   [{:id 1,
+;;     :entitydb/id 1,
+;;     :entitydb/type :link,
+;;     :url "http://keechma.com",
+;;     :user
+;;     {:id 1, 
+;;      :username "Retro", 
+;;      :entitydb/id 1, 
+;;      :entitydb/type :user}}],
+;;   :entitydb/id 1, 
+;;   :entitydb/type :note}
+```
+
 ### Recur-on query
 
+`recur-on` is used for recursively fetching all the related/nested data (as long as nested data is properly structured).
+It is unboundend by default, but can be limited in case of circular relationships.
+```
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+(def recursive-schema
+  {:folder {:entitydb/id        :name
+            :entitydb/relations {:folders {:entitydb.relation/path [:folders :edges :* :node]
+                                           :entitydb.relation/type :folder}
+                                 :files   {:entitydb.relation/path [:files :edges :* :node]
+                                           :entitydb.relation/type :file}}}
+
+(def recursive-data
+  {:name    "Root"
+   :files   {:edges [{:node {:name "File Root: 1"}}]}
+   :folders {:edges [{:node {:name  "1"
+                             :files {:edges [{:node {:name "File 1: 1"}}]}}}
+                     {:node {:name    "2"
+                             :folders {:edges [{:node {:name "2 / 1"}}
+                                               {:node {:name    "2 / 2"
+                                                       :folders {:edges [{:node {:name "2 / 2 / 1"}}
+                                                                         {:node {:name "2 / 2 / 2"}}]}}}]}}}]}})
+
+(def db (edb/insert-schema {} recursive-schema))
+(def db-1 (edb/insert-entity db :folder recursive-data)
+
+(def query [:files (q/recur-on :folders)])
+
+(edb/get-entity db-1 :folder "Root" query)]
+
+;;  {:name          "Root"
+;;   :files         {:edges
+;;                   [{:node
+;;                     {:name          "File Root: 1"
+;;                      :entitydb/id   "File Root: 1"
+;;                      :entitydb/type :file}}]}
+;;   :folders       {:edges
+;;                   [{:node
+;;                     {:name          "1"
+;;                      :files         {:edges
+;;                                      [{:node
+;;                                        {:name          "File 1: 1"
+;;                                         :entitydb/id   "File 1: 1"
+;;                                         :entitydb/type :file}}]}
+;;                      :entitydb/id   "1"
+;;                      :entitydb/type :folder}}
+;;                    {:node
+;;                     {:name          "2"
+;;                      :folders       {:edges
+;;                                      [{:node
+;;                                        {:name "2 / 1" :entitydb/id "2 / 1" :entitydb/type :folder}}
+;;                                       {:node
+;;                                        {:name          "2 / 2"
+;;                                         :folders       {:edges
+;;                                                         [{:node
+;;                                                           {:name          "2 / 2 / 1"
+;;                                                            :entitydb/id   "2 / 2 / 1"
+;;                                                            :entitydb/type :folder}}
+;;                                                          {:node
+;;                                                           {:name          "2 / 2 / 2"
+;;                                                            :entitydb/id   "2 / 2 / 2"
+;;                                                            :entitydb/type :folder}}]}
+;;                                         :entitydb/id   "2 / 2"
+;;                                         :entitydb/type :folder}}]}
+;;                      :entitydb/id   "2"
+;;                      :entitydb/type :folder}}]}
+;;   :entitydb/id   "Root"
+;;   :entitydb/type :folder}
+```
+
 ### Switch query
+`switch` is used to perform different query based on a given relation entity type, ie in a scenario where
+heterogeneous collection needs to be traversed and based on the type of the item in question different subqueries are
+required. 
+
+Important thing to notice is that, apart from other query-selectors, 
+`switch` doesn't _move_ the cursor in graph traversal, rather it points to the current node.
+
+```
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+(def switch-schema
+  {:image {:entitydb/id        :src
+           :entitydb/relations {:comments {:entitydb.relation/path [:comments :*]
+                                           :entitydb.relation/type :comment}}}
+   :post  {:entitydb/relations {:author :user}}})
+
+(def db (edb/insert-schema {} switch-schema))
+
+(def db-1 (-> db
+             (edb/insert-entity :user {:id   1
+                                       :name "Retro"})
+             (edb/insert-entities :comment [{:id 1
+                                             :body "Comment 1"}
+                                            {:id 2
+                                             :body "Comment 2"}
+                                            {:id 3
+                                             :body "Comment 3"}])
+             (edb/insert-collection :media :media/favorites [{:id            1
+                                                              :title         "Post 1"
+                                                              :author        {:id 1}
+                                                              :entitydb/type :post}
+                                                             {:id            2
+                                                              :title         "Post 2"
+                                                              :author        {:id 1}
+                                                              :entitydb/type :post}
+                                                             {:src         "some-source"
+                                                              :title         "Image 1"
+                                                              :comments      [{:id 1} {:id 3}]
+                                                              :entitydb/type :image}])))
+
+(edb/get-collection with-data :media/favorites [(q/switch {:post  [(q/include :author)]
+                                                           :image [(q/include :comments)]})])
+
+;; [{:id 1,
+;;   :title "Post 1",
+;;   :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user},
+;;   :entitydb/type :post,
+;;   :entitydb/id 1}
+;;  {:id 2,
+;;   :title "Post 2",
+;;   :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user},
+;;   :entitydb/type :post,
+;;   :entitydb/id 2}
+;;  {:src "some-source",
+;;   :title "Image 1",
+;;   :comments
+;;   [{:id 1, :body "Comment 1", :entitydb/id 1, :entitydb/type :comment}
+;;    {:id 3,
+;;     :body "Comment 3",
+;;     :entitydb/id 3,
+;;     :entitydb/type :comment}],
+;;   :entitydb/type :image, 
+;;   :entitydb/id "some-source"}]
+```
 
 ### Reverse-include query
+
+Includes all entities of a given type that point to the current entity. Based on previous example:
+
+```
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
+...
+
+(edb/get-entity with-data :user 1 [(q/reverse-include :post)])
+;; {:id 1,
+;;  :name "Retro",
+;;  :entitydb/id 1,
+;;  :entitydb/type :user,
+;;  :entitydb.relations/reverse
+;;  {:post
+;;   {:author
+;;    {1
+;;     {:id 1,
+;;      :title "Post 1",
+;;      :author {:type :user, :id 1},
+;;      :entitydb/type :post,
+;;      :entitydb/id 1},
+;;     2
+;;     {:id 2,
+;;      :title "Post 2",
+;;      :author {:type :user, :id 1},
+;;      :entitydb/type :post, 
+;;      :entitydb/id 2}}}}}
+```
 
