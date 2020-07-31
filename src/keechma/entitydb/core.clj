@@ -6,7 +6,7 @@
 (def fns {:mutation #{"insert"
                       "insert-schema"
                       "insert-many"
-                      "insert-named-item"
+                      "insert-named"
                       "insert-collection"
                       "remove-entity"
                       "remove-named"
