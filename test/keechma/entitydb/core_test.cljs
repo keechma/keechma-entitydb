@@ -12,6 +12,7 @@
 
 ;; INSERT TESTS
 
+
 (deftest insert-user-test
   (let [res (edb/insert-entity {} :user {:id 1 :username "Retro"})]
     (is (= res {:entitydb/store {:user {1 {:id 1 :entitydb/id 1 :username "Retro" :entitydb/type :user}}}}))))
@@ -796,28 +797,133 @@
            current-note))))
 
 (deftest processor-test
-  (let [with-schema         (edb/insert-schema {} {:user {:entitydb/relations
-                                                          {:roles {:entitydb.relation/path [:roles :*]
-                                                                   :entitydb.relation/type :role}}}
-                                                   :role {:entitydb/processor (fn [r] {:id r})}})
-        with-data           (-> with-schema
-                                (edb/insert-entity :user {:id 1
-                                                   :username  "Retro"
-                                                   :roles     ["ADMIN" "EDITOR"]})
-                                (edb/insert-entity :user {:id 2
-                                                   :username  "Tibor"
-                                                   :roles     ["EDITOR"]}))
-        expected-admin-role (:id (edb/get-entity with-data :role "ADMIN"))
+  (let [with-schema          (edb/insert-schema {} {:user {:entitydb/relations
+                                                           {:roles {:entitydb.relation/path [:roles :*]
+                                                                    :entitydb.relation/type :role}}}
+                                                    :role {:entitydb/processor (fn [r] {:id r})}})
+        with-data            (-> with-schema
+                                 (edb/insert-entity :user {:id       1
+                                                           :username "Retro"
+                                                           :roles    ["ADMIN" "EDITOR"]})
+                                 (edb/insert-entity :user {:id       2
+                                                           :username "Tibor"
+                                                           :roles    ["EDITOR"]}))
+        expected-admin-role  (:id (edb/get-entity with-data :role "ADMIN"))
         expected-editor-role (-> with-data
                                  (edb/get-entity :user 1 [(q/include :roles)])
                                  (get-in [:roles 1 :id]))
-        expected-users (-> with-data
-                           (edb/get-entity :role "EDITOR" [(q/reverse-include :user)])
-                           (get-in [:entitydb.relations/reverse :user :roles])
-                           keys)]
+        expected-users       (-> with-data
+                                 (edb/get-entity :role "EDITOR" [(q/reverse-include :user)])
+                                 (get-in [:entitydb.relations/reverse :user :roles])
+                                 keys)]
     (is (= "ADMIN"
-           expected-admin-role))
+          expected-admin-role))
     (is (= "EDITOR"
-           expected-editor-role))
+          expected-editor-role))
     (is (= '(1 2)
-           expected-users))))
+          expected-users))))
+
+(def recursive-data
+  {:name    "Root"
+   :files   {:edges [{:node {:name "File Root: 1"}}]}
+   :folders {:edges [{:node {:name  "1"
+                             :files {:edges [{:node {:name "File 1: 1"}}]}}}
+                     {:node {:name    "2"
+                             :folders {:edges [{:node {:name "2 / 1"}}
+                                               {:node {:name    "2 / 2"
+                                                       :folders {:edges [{:node {:name "2 / 2 / 1"}}
+                                                                         {:node {:name "2 / 2 / 2"}}]}}}]}}}]}})
+
+(def recursive-schema
+  {:folder {:entitydb/id        :name
+            :entitydb/relations {:folders {:entitydb.relation/path [:folders :edges :* :node]
+                                           :entitydb.relation/type :folder}
+                                 :files   {:entitydb.relation/path [:files :edges :* :node]
+                                           :entitydb.relation/type :file}}}
+   :file   {:entitydb/id :name}})
+
+(deftest recursive-relations
+  (let [with-schema (edb/insert-schema {} recursive-schema)
+        with-data   (edb/insert-entity with-schema :folder recursive-data)]
+    (let [query [:files (q/recur-on :folders)]
+          res   (edb/get-entity with-data :folder "2 / 2 / 1" query)]
+      (is (= res
+            {:name "2 / 2 / 1" :entitydb/id "2 / 2 / 1" :entitydb/type :folder})))))
+
+(def recursive-data-2
+  {:name    "Foo"
+   :enemies [{:name    "Qux"
+              :enemies [{:name "Bar"}]
+              :friends [{:name    "Baz"
+                         :enemies [{:name "Foo"}
+                                   {:name    "Bar"
+                                    :friends [{:name "Qux"}]}]}]}]
+   :friends [{:name    "Bar"
+              :enemies [{:name "Qux"}]
+              :friends [{:name    "Baz"
+                         :friends [{:name    "Qux"
+                                    :enemies [{:name "Bar"}
+                                              {:name "Foo"}]}]}]}]})
+
+(def recursive-schema-2
+  {:person {:entitydb/id        :name
+            :entitydb/relations {:enemies {:entitydb.relation/type :person
+                                           :entitydb.relation/path [:enemies :*]}
+                                 :friends {:entitydb.relation/type :person
+                                           :entitydb.relation/path [:friends :*]}}}})
+
+(def baz-res
+  {:name          "Baz"
+   :enemies       [{:name          "Foo"
+                    :enemies       [{:name          "Qux"
+                                     :enemies       [(->EntityIdent :person "Bar") (->EntityIdent :person "Foo")]
+                                     :friends       [(->EntityIdent :person "Baz")]
+                                     :entitydb/id   "Qux"
+                                     :entitydb/type :person}]
+                    :friends       [{:name          "Bar"
+                                     :entitydb/id   "Bar"
+                                     :entitydb/type :person
+                                     :friends       [(->EntityIdent :person "Baz")]
+                                     :enemies       [(->EntityIdent :person "Qux")]}]
+                    :entitydb/id   "Foo"
+                    :entitydb/type :person}
+                   {:name          "Bar"
+                    :entitydb/id   "Bar"
+                    :entitydb/type :person
+                    :friends       [{:name          "Baz"
+                                     :enemies       [(->EntityIdent :person "Foo") (->EntityIdent :person "Bar")]
+                                     :entitydb/id   "Baz"
+                                     :entitydb/type :person
+                                     :friends       [(->EntityIdent :person "Qux")]}]
+                    :enemies       [{:name          "Qux"
+                                     :enemies       [(->EntityIdent :person "Bar") (->EntityIdent :person "Foo")]
+                                     :friends       [(->EntityIdent :person "Baz")]
+                                     :entitydb/id   "Qux"
+                                     :entitydb/type :person}]}]
+   :entitydb/id   "Baz"
+   :entitydb/type :person
+   :friends       [{:name          "Qux"
+                    :enemies       [{:name          "Bar"
+                                     :entitydb/id   "Bar"
+                                     :entitydb/type :person
+                                     :friends       [(->EntityIdent :person "Baz")]
+                                     :enemies       [(->EntityIdent :person "Qux")]}
+                                    {:name          "Foo"
+                                     :enemies       [(->EntityIdent :person "Qux")]
+                                     :friends       [(->EntityIdent :person "Bar")]
+                                     :entitydb/id   "Foo"
+                                     :entitydb/type :person}]
+                    :friends       [{:name          "Baz"
+                                     :enemies       [(->EntityIdent :person "Foo") (->EntityIdent :person "Bar")]
+                                     :entitydb/id   "Baz"
+                                     :entitydb/type :person
+                                     :friends       [(->EntityIdent :person "Qux")]}]
+                    :entitydb/id   "Qux"
+                    :entitydb/type :person}]})
+
+(deftest recursive-circular-relations
+  (let [with-schema (edb/insert-schema {} recursive-schema-2)
+        with-data   (edb/insert-entity with-schema :person recursive-data-2)]
+    (let [query [(q/recur-on :friends 2) (q/recur-on :enemies 2)]
+          res   (edb/get-entity with-data :person "Baz" query)]
+      (is (= res baz-res)))))
