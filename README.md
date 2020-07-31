@@ -508,3 +508,8 @@ Includes all entities of a given type that point to the current entity. Based on
 ;;      :entitydb/id 2}}}}}
 ```
 
+## License
+
+Copyright © 2020 Mihael Konjevic, Tibor Kranjcec
+
+Distributed under the MIT License.
