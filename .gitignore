@@ -15,3 +15,4 @@
 /target
 pom.xml
 pom.xml.asc
+.rebel_readline_history
