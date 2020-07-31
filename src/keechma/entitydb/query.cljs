@@ -6,7 +6,7 @@
 (declare resolve-queries)
 
 (defn include
-  "Includes a relationsip by name"
+  "Includes a relationship by name"
   ([relation] (include relation nil))
   ([relation subquery]
    {::type             :include
@@ -29,8 +29,9 @@
     ::subquery subquery
     :entitydb/type entity-type}))
 
-(defn switch [switch-queries]
+(defn switch
   "Based on the relation entity type, it will perform a different query"
+  [switch-queries]
   {::type :switch
    ::switch-queries switch-queries})
 
@@ -50,7 +51,6 @@
 (defmethod resolve-query :switch [store entity query _] 
   (let [entity-type (:entitydb/type entity)
         queries (get-in query [::switch-queries entity-type])]
-    (println queries)
     (resolve-queries store entity queries)))
 
 (defmethod resolve-query :include [store entity query _] 
