@@ -28,6 +28,10 @@ EntityDB allows you to define an optional schema which will be used to extract r
 In this example we'll store and retreive a _current user_:
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-named {} :user :user/current {:id 1 :username "Retro"}))
 (edb/get-named db :user/current) ;; Returns {:id 1 :username "Retro" :entitydb/type :user :entitydb/id 1}
 ```
@@ -37,6 +41,10 @@ As you can see, we get whatever we put inside (plus some EntityDB attributes). E
 In some cases you'll get parts of entity data from different sources. For instance, you might load a list of articles which will embed some user info, and you could get the whole user entity from a user endpoint. If you put data with the same identity in EntityDB, this data will be merged. Default identity is `:id`.
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-named {} :user :user/current {:id 1 :username "Retro"}))
 (def db-1 (edb/insert-named {} :user :user/author {:id 1 :firstName "Mihael" :lastName "Konjevic"}))
 (edb/get-named db :user/current) ;; Returns {:id 1 :username "Retro" :firstName "Mihael" :lastName "Konjevic" :entitydb/type :user :entitydb/id 1}
@@ -45,6 +53,10 @@ In some cases you'll get parts of entity data from different sources. For instan
 Sometimes, you'll load an entity by id, and you want to put it in EntityDB to ensure that you have the latest data loaded. In that case, you can put an entity directly into EntityDB - without using a named entity. All named entities will be synchronized.
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-named {} :user :user/current {:id 1 :username "Retro"}))
 (def db-1 (edb/insert-entity {} :user {:id 1 :firstName "Mihael" :lastName "Konjevic"}))
 (edb/get-named db :user/current) ;; Returns {:id 1 :username "Retro" :firstName "Mihael" :lastName "Konjevic" :entitydb/type :user :entitydb/id 1}
@@ -55,6 +67,10 @@ Named entities' names are contextual. For instance on the URL `/article/1`, `:us
 Removing a named entity will not remove the entity from the store. It will just unlink the name from the entity.
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-named {} :user :user/current {:id 1 :username "Retro"}))
 (edb/get-named db :user/current) ;; Returns {:id 1 :username "Retro" :entitydb/type :user :entitydb/id 1}
 
@@ -66,6 +82,10 @@ Removing a named entity will not remove the entity from the store. It will just 
 If you remove an entity from the store, all named entities will be cleaned up automatically.
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-named {} :user :user/current {:id 1 :username "Retro"}))
 (edb/get-named db :user/current) ;; Returns {:id 1 :username "Retro" :entitydb/type :user :entitydb/id 1}
 
@@ -77,6 +97,10 @@ If you remove an entity from the store, all named entities will be cleaned up au
 Collections are similar to named entities, but instead of a single entity they point to a vector (or list) of entities. Insertion order is preserved. If you remove an entity from the store it will be removed from any collections too.
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-collection {} :user :user/friends [{:id 1 :username "Retro"} {:id 2 :username "TiborKr"}]))
 (edb/get-collection db :user/friends) ;; Returns [{:id 1 :username "Retro" :entitydb/id 1 :entitydb/type :user} {:id 2 :username "TiborKr" :entitydb/id 1 :entitydb/type :user}]
 
@@ -197,6 +221,10 @@ The behavior presented previously in this document - merging of entities and cle
 Schema needs to be inserted in EntityDB before you can start using it:
 
 ```clojure
+(ns myapp.example
+ (:require [keechma.entitydb.core :as edb]
+           [keechma.entitydb.query :as q]))
+
 (def db (edb/insert-schema {} {:note {:entitydb/relations {:notes {:entitydb.relation/path [:notes :*]
                                                                    :entitydb.relation/type :note}}}
                                :link {:entitydb/id :url}}))
@@ -236,7 +264,7 @@ Getting data from EntityDB without specifying which relations to include returns
 
 You will use the `include` query most of the time. It is used to include related entities.
 
-```
+```clojure
 (ns myapp.example
  (:require [keechma.entitydb.core :as edb]
            [keechma.entitydb.query :as q]))
@@ -264,7 +292,7 @@ You will use the `include` query most of the time. It is used to include related
 Important thing to note here is that `include` by default resolves only first level of relations but can be extended to
 suit your need. For example, if we expand schema from previous example with `user` relation
 
-```
+```clojure
 (ns myapp.example
  (:require [keechma.entitydb.core :as edb]
            [keechma.entitydb.query :as q]))
@@ -308,7 +336,8 @@ suit your need. For example, if we expand schema from previous example with `use
 
 `recur-on` is used for recursively fetching all the related/nested data (as long as nested data is properly structured).
 It is unboundend by default, but can be limited in case of circular relationships.
-```
+
+```clojure
 (ns myapp.example
  (:require [keechma.entitydb.core :as edb]
            [keechma.entitydb.query :as q]))
@@ -386,7 +415,7 @@ required.
 Important thing to notice is that, apart from other query-selectors, 
 `switch` doesn't _move_ the cursor in graph traversal, rather it points to the current node.
 
-```
+```clojure
 (ns myapp.example
  (:require [keechma.entitydb.core :as edb]
            [keechma.entitydb.query :as q]))
@@ -450,7 +479,7 @@ Important thing to notice is that, apart from other query-selectors,
 
 Includes all entities of a given type that point to the current entity. Based on previous example:
 
-```
+```clojure
 (ns myapp.example
  (:require [keechma.entitydb.core :as edb]
            [keechma.entitydb.query :as q]))
