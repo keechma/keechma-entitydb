@@ -1024,3 +1024,52 @@
         res         (edb/get-collection with-data :media/favorites [(q/switch {:post  [(q/include :author)]
                                                                                :image [(q/include :comments)]})])]
     (is (= res switch-res))))
+
+
+(deftest custom-merge
+  (let [schema      {:user {:entitydb/merge (fn [prev-value next-value]
+                                              (let [profiles (or (:profiles next-value)
+                                                               (:profiles prev-value))]
+                                                (-> (merge prev-value next-value)
+                                                  (assoc :profiles profiles))))}}
+        with-schema (edb/insert-schema {} schema)
+        with-data (-> with-schema
+                    (edb/insert-entity :user {:id 1
+                                              :username "retro"
+                                              :profiles {:twitter {:username "mihaelkonjevic"}}})
+                    (edb/insert-entity :user {:id 1
+                                              :username "retro"
+                                              :profiles nil}))
+        res (edb/get-entity with-data :user 1)]
+    (is (= res
+          {:id 1
+           :entitydb/id 1
+           :entitydb/type :user
+           :username "retro"
+           :profiles {:twitter {:username "mihaelkonjevic"}}}))))
+
+(deftest custom-merge-with-relations
+  (let [schema      {:user {:entitydb/merge (fn [prev-value next-value]
+                                              (let [profiles (or (:profiles next-value)
+                                                               (:profiles prev-value))]
+                                                (-> (merge prev-value next-value)
+                                                  (assoc :profiles profiles))))
+                            :entitydb/relations {:posts {:entitydb.relation/path [:posts :*]
+                                                         :entitydb.relation/type :post}}}}
+        with-schema (edb/insert-schema {} schema)
+        with-data (-> with-schema
+                    (edb/insert-entity :user {:id 1
+                                              :username "retro"
+                                              :posts [{:id 1 :title "Post 1"}]
+                                              :profiles {:twitter {:username "mihaelkonjevic"}}})
+                    (edb/insert-entity :user {:id 1
+                                              :username "retro"
+                                              :profiles nil}))
+        res (edb/get-entity with-data :user 1)]
+    (is (= res
+          {:id 1
+           :entitydb/id 1
+           :entitydb/type :user
+           :posts [(->EntityIdent :post 1)]
+           :username "retro"
+           :profiles {:twitter {:username "mihaelkonjevic"}}}))))

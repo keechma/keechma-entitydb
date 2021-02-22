@@ -231,6 +231,17 @@ Schema needs to be inserted in EntityDB before you can start using it:
                                                                    :entitydb.relation/type :note}}}
                                :link {:entitydb/id :url}}))
 ```
+## Custom merge behavior
+
+By default entities are merged with the `merge` function which means that nested data might be lost if it's not present on the entity version that's being inserted. If you want to customize the merge behavior, it's possible to pass a function under the `:entitydb/merge` key. This function will be used to merge two versions of the entity. It will be called after the relations are extracted and replaced with idents.
+
+```clojure
+(def schema {:user {:entitydb/merge (fn [prev-value next-value]
+                                      (let [profiles (or (:profiles next-value)
+                                                       (:profiles prev-value))]
+                                        (-> (merge prev-value next-value)
+                                          (assoc :profiles profiles))))}})
+```
 
 ## Querying relationships
 

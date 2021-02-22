@@ -166,10 +166,11 @@
   ([store {:keys [entity related-entities]} parent-entity-ident]
    (let [entity-id    (:entitydb/id entity)
          entity-type  (:entitydb/type entity)
+         entity-merge (get-in store [:entitydb/schema entity-type :entitydb/merge] merge)
          entity-ident (entity->entity-ident entity)
          updated-store
                       (as-> store store'
-                        (update-in store' [:entitydb/store entity-type entity-id] #(merge % entity))
+                        (update-in store' [:entitydb/store entity-type entity-id] #(entity-merge % entity))
                         (remove-invalid-relations store' entity)
                         (reduce-kv
                           (fn [s [relation-name path] v]
