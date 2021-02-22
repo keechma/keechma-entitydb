@@ -1,4 +1,4 @@
-(defproject keechma/entitydb "2.0.2"
+(defproject keechma/entitydb "2.0.3"
   :description "Client side database and normalization engine"
   :url "https://github.com/keechma/keechma-entitydb"
   :license {:name "MIT License"
