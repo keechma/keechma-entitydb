@@ -1094,3 +1094,11 @@
     (is (thrown? js/Error (edb/insert-entity with-schema :user {})))
     (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {})))
     (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{}])))))
+
+(deftest inserting-entity-with-wrong-type-throws
+  (let [schema {}
+        with-schema (edb/insert-schema {} schema {:entitydb.schema/strict? true})]
+    (is (thrown? js/Error (edb/insert-entity with-schema :user {:id 1})))
+    (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {:id 1})))
+    (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{:id 1}])))))
+

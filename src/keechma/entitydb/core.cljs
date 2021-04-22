@@ -22,6 +22,11 @@
     (not (every? nil? id))
     (not (nil? id))))
 
+(defn valid-entity-type? [store {:entitydb/keys [type]}]
+  (if (get-in store [:entitydb/opts :entitydb.schema/strict?])
+    (contains? (:entitydb/schema store) type)
+    true))
+
 (defn prepare-type-schema-relations [type-schema entitydb-type]
   (if-let [relations (:entitydb/relations type-schema)]
     (assoc type-schema :entitydb/relations
@@ -60,8 +65,12 @@
                  (prepare-type-schema-relations t))]))
        (into {})))
 
-(defn insert-schema [store schema]
-  (assoc-in store [:entitydb/schema] (prepare-schema schema)))
+(defn insert-schema
+  ([store schema] (insert-schema store schema {}))
+  ([store schema opts]
+   (-> store
+       (assoc-in [:entitydb/schema] (prepare-schema schema))
+       (assoc-in [:entitydb/opts] opts))))
 
 (defn get-entity-type [entity-type entity]
   (cond
@@ -171,6 +180,8 @@
   ([store {:keys [entity related-entities]} parent-entity-ident]
    (when-not (valid-entity-id? entity)
      (throw (entitydb-ex-info "Trying to insert entity without ID" :invalid-entity {:entity entity})))
+   (when-not (valid-entity-type? store entity)
+     (throw (entitydb-ex-info "Trying to insert entity with invalid type" :invalid-entity {:entity entity})))
    (let [entity-id    (:entitydb/id entity)
          entity-type  (:entitydb/type entity)
          entity-merge (get-in store [:entitydb/schema entity-type :entitydb/merge] merge)
