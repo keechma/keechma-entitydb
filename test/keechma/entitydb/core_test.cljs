@@ -1073,3 +1073,24 @@
             :posts [(->EntityIdent :post 1)]
             :username "retro"
             :profiles {:twitter {:username "mihaelkonjevic"}}}))))
+
+(deftest inserting-entity-with-nil-id-throws-1
+  (let [schema {:user {:entitydb/id :non-existing-attr}}
+        with-schema (edb/insert-schema {} schema)]
+    (is (thrown? js/Error (edb/insert-entity with-schema :user {})))
+    (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {})))
+    (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{}])))))
+
+(deftest inserting-entity-with-nil-id-throws-2
+  (let [schema {:user {:entitydb/id (fn [entity] (:non-existing-attr entity))}}
+        with-schema (edb/insert-schema {} schema)]
+    (is (thrown? js/Error (edb/insert-entity with-schema :user {})))
+    (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {})))
+    (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{}])))))
+
+(deftest inserting-entity-with-nil-id-throws-3
+  (let [schema {:user {:entitydb/id (fn [entity] [(:foo entity) (:bar entity)])}}
+        with-schema (edb/insert-schema {} schema)]
+    (is (thrown? js/Error (edb/insert-entity with-schema :user {})))
+    (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {})))
+    (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{}])))))

@@ -1,6 +1,5 @@
 (ns keechma.entitydb.query
-  (:require [keechma.entitydb.internal :refer [EntityIdent entity? entity-ident? entity->entity-ident]]
-            [clojure.set :as set]))
+  (:require [keechma.entitydb.internal :refer [entity->entity-ident]]))
 
 (declare get-entity)
 (declare resolve-queries)

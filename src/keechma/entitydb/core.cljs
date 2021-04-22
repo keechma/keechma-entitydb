@@ -1,12 +1,10 @@
 (ns keechma.entitydb.core
   (:require [keechma.entitydb.query :as query]
-            [clojure.set :as set]
             [medley.core :refer [dissoc-in]]
-            [keechma.entitydb.util :refer [vec-remove log]]
+            [keechma.entitydb.util :refer [vec-remove]]
             [keechma.entitydb.internal :refer [->EntityIdent
                                                entity->entity-ident
                                                entity-ident->entity
-                                               entity?
                                                entity-ident?
                                                entitydb-ex-info]]))
 
@@ -19,6 +17,11 @@
     item
     (assoc item :entitydb/id (get-id item))))
 
+(defn valid-entity-id? [{:entitydb/keys [id]}]
+  (if (seqable? id)
+    (not (every? nil? id))
+    (not (nil? id))))
+
 (defn prepare-type-schema-relations [type-schema entitydb-type]
   (if-let [relations (:entitydb/relations type-schema)]
     (assoc type-schema :entitydb/relations
@@ -29,11 +32,13 @@
                                                (update :entitydb.relation/path #(or % (vec (flatten [relation-name])))))]
                      (when (= :* (first (:entitydb.relation/path prepared-relation)))
                        (throw (entitydb-ex-info "Relation's :keechma.entitydb.relation/path can't start with :*"
+                                                :invalid-schema
                                                 {:entitydb/relation      prepared-relation
                                                  :entitydb.relation/name relation-name
                                                  :entitydb/type          entitydb-type})))
                      (when (nil? (:entitydb.relation/type prepared-relation))
                        (throw (entitydb-ex-info "Relation must have :keechma.entitydb.relation/type defined"
+                                                :invalid-schema
                                                 {:entitydb/relation      prepared-relation
                                                  :entitydb.relation/name relation-name
                                                  :entitydb/type          entitydb-type})))
@@ -164,6 +169,8 @@
 (defn insert-prepared
   ([store prepared] (insert-prepared store prepared nil))
   ([store {:keys [entity related-entities]} parent-entity-ident]
+   (when-not (valid-entity-id? entity)
+     (throw (entitydb-ex-info "Trying to insert entity without ID" :invalid-entity {:entity entity})))
    (let [entity-id    (:entitydb/id entity)
          entity-type  (:entitydb/type entity)
          entity-merge (get-in store [:entitydb/schema entity-type :entitydb/merge] merge)
