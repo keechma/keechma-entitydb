@@ -46,7 +46,7 @@
                                :edges    [{:cursor 3
                                            :node   {:id 1}}]}}]})
 
-(def user-2-data 
+(def user-2-data
   {:username      "tiborkr"
    :id            2
    :favoritePosts {:pageInfo {:hasNextPage true}
@@ -64,7 +64,7 @@
                                :node   {:slug  "my-post-3"
                                         :title "My Post #3"}}]}})
 
-(def user-1-post-data-update 
+(def user-1-post-data-update
   {:username "retro"
    :id        1
    :posts     {:pageInfo {:hasNextPage true}
@@ -78,13 +78,13 @@
                            :node   {:slug  "my-post-3"
                                     :title "My Post #3"}}]}})
 
-(def user-3-data 
+(def user-3-data
   {:username      "dario"
    :id            3
    :favoritePosts {:pageInfo {:hasNextPage true}
-                   :edges    [ {:cursor "3"
-                                :node   {:slug  "my-post-2"
-                                         :title "My Post #2"}}
+                   :edges    [{:cursor "3"
+                               :node   {:slug  "my-post-2"
+                                        :title "My Post #2"}}
                               {:cursor "1"
                                :node   {:slug  "my-post-3"
                                         :title "My Post #3"}}
@@ -118,7 +118,7 @@
   [{:id   3
     :name "keechma.entitydb"}])
 
-(def schema 
+(def schema
   {:user              {:entitydb/relations
                        {:urls           {:entitydb.relation/path [:urls :*]
                                          :entitydb.relation/type :url}

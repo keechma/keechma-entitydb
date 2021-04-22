@@ -1,11 +1,11 @@
 (ns keechma.entitydb.core-test
   (:require
-    [cljs.test :refer-macros [deftest is testing use-fixtures]]
-    [keechma.entitydb.internal :refer [->EntityIdent]]
-    [keechma.entitydb.core :as edb]
-    [keechma.entitydb.query :as q]
-    [keechma.entitydb.data :as data]
-    [keechma.entitydb.util :refer [log]]))
+   [cljs.test :refer-macros [deftest is testing use-fixtures]]
+   [keechma.entitydb.internal :refer [->EntityIdent]]
+   [keechma.entitydb.core :as edb]
+   [keechma.entitydb.query :as q]
+   [keechma.entitydb.data :as data]
+   [keechma.entitydb.util :refer [log]]))
 
 (use-fixtures :once
   {:before (fn [] (js/console.clear))})
@@ -123,7 +123,7 @@
                           {:data (->EntityIdent :note 1)
                            :meta nil}}}]
     (is (= (edb/get-named store-with-item :note/current)
-          {:entitydb/id 1 :entitydb/type :note :id 1 :title "Note title"}))))
+           {:entitydb/id 1 :entitydb/type :note :id 1 :title "Note title"}))))
 
 (deftest get-collection-test
   (let [with-data       {:entitydb/store {:note
@@ -138,11 +138,11 @@
                                             :entitydb/id   2
                                             :entitydb/type :note}}}
                          :entitydb.named/collection
-                                         {:note/favorites
-                                          {:data
-                                                 [(->EntityIdent :note 1)
-                                                  (->EntityIdent :note 2)]
-                                           :meta nil}}}
+                         {:note/favorites
+                          {:data
+                           [(->EntityIdent :note 1)
+                            (->EntityIdent :note 2)]
+                           :meta nil}}}
 
         expected-layout [{:id            1
                           :title         "Note title"
@@ -183,65 +183,65 @@
         insert-note-data (edb/insert-entity with-data :note {:id 1 :title "Note title"})]
 
     (is (= (get-in with-data [:entitydb/relations (->EntityIdent :note 1)])
-          (get-in insert-note-data [:entitydb/relations (->EntityIdent :note 1)])))
+           (get-in insert-note-data [:entitydb/relations (->EntityIdent :note 1)])))
 
     (is (= (get-in with-data [:entitydb.relations/reverse (->EntityIdent :user 1)])
-          (get-in insert-note-data [:entitydb.relations/reverse (->EntityIdent :user 1)])))))
+           (get-in insert-note-data [:entitydb.relations/reverse (->EntityIdent :user 1)])))))
 
 (deftest circular-relations-test
   (let
-    [with-schema                (edb/insert-schema {} {:note {:entitydb/relations
-                                                              {:links {:entitydb.relation/path [:links :*]
-                                                                       :entitydb.relation/type :link}}}
-                                                       :link {:entitydb/relations
-                                                              {:notes {:entitydb.relation/path [:notes :*]
-                                                                       :entitydb.relation/type :note}}}})
-     with-data                  (-> with-schema
-                                    (edb/insert-entity :note {:id    1
-                                                              :title "Note #1"
-                                                              :links [{:id 1}
-                                                                      {:id 2}]})
-                                    (edb/insert-entity :note {:id    2
-                                                              :title "Note #2"
-                                                              :links [{:id 2}]})
-                                    (edb/insert-entity :note {:id    3
-                                                              :title "Note #3"
-                                                              :links [{:id 1}
-                                                                      {:id 3}]})
-                                    (edb/insert-entity :link {:id    1
-                                                              :url   "http://google.com"
-                                                              :notes [{:id 1}
-                                                                      {:id 3}]})
-                                    (edb/insert-entity :link {:id    2
-                                                              :url   "http://bing.com"
-                                                              :notes [{:id 2}
-                                                                      {:id    4
-                                                                       :title "Note #4"}]})
-                                    (edb/insert-entity :link {:id    3
-                                                              :url   "http://yahoo.com"
-                                                              :notes [{:id 3}]}))
-     note-1                     (edb/get-entity with-data :note 1 [(q/include :links)])
-     note-1-reverse-from-link-1 (edb/get-entity with-data :link 1 [(q/reverse-include :note)])
-     link-1                     (edb/get-entity with-data :link 1 [(q/include :notes [(q/include :links [(q/include :notes)])])])
-     link-1-reverse-from-note-1 (edb/get-entity with-data :note 1 [(q/reverse-include :link)])
-     link-1-from-note-1         (get-in note-1 [:links 0])
-     note-1-from-link-1         (get-in link-1 [:notes 0])]
+   [with-schema                (edb/insert-schema {} {:note {:entitydb/relations
+                                                             {:links {:entitydb.relation/path [:links :*]
+                                                                      :entitydb.relation/type :link}}}
+                                                      :link {:entitydb/relations
+                                                             {:notes {:entitydb.relation/path [:notes :*]
+                                                                      :entitydb.relation/type :note}}}})
+    with-data                  (-> with-schema
+                                   (edb/insert-entity :note {:id    1
+                                                             :title "Note #1"
+                                                             :links [{:id 1}
+                                                                     {:id 2}]})
+                                   (edb/insert-entity :note {:id    2
+                                                             :title "Note #2"
+                                                             :links [{:id 2}]})
+                                   (edb/insert-entity :note {:id    3
+                                                             :title "Note #3"
+                                                             :links [{:id 1}
+                                                                     {:id 3}]})
+                                   (edb/insert-entity :link {:id    1
+                                                             :url   "http://google.com"
+                                                             :notes [{:id 1}
+                                                                     {:id 3}]})
+                                   (edb/insert-entity :link {:id    2
+                                                             :url   "http://bing.com"
+                                                             :notes [{:id 2}
+                                                                     {:id    4
+                                                                      :title "Note #4"}]})
+                                   (edb/insert-entity :link {:id    3
+                                                             :url   "http://yahoo.com"
+                                                             :notes [{:id 3}]}))
+    note-1                     (edb/get-entity with-data :note 1 [(q/include :links)])
+    note-1-reverse-from-link-1 (edb/get-entity with-data :link 1 [(q/reverse-include :note)])
+    link-1                     (edb/get-entity with-data :link 1 [(q/include :notes [(q/include :links [(q/include :notes)])])])
+    link-1-reverse-from-note-1 (edb/get-entity with-data :note 1 [(q/reverse-include :link)])
+    link-1-from-note-1         (get-in note-1 [:links 0])
+    note-1-from-link-1         (get-in link-1 [:notes 0])]
     (is (= "http://google.com"
-          (:url link-1-from-note-1)))
+           (:url link-1-from-note-1)))
     (is (= {:id            1
             :title         "Note #1"
             :entitydb/type :note
             :entitydb/id   1}
-          (dissoc note-1-from-link-1 :links :entitydb.relations/reverse)))
+           (dissoc note-1-from-link-1 :links :entitydb.relations/reverse)))
     (is (= (dissoc note-1 :links)
-          (dissoc (get-in note-1-reverse-from-link-1 [:entitydb.relations/reverse :note :links 1]) :links)))
+           (dissoc (get-in note-1-reverse-from-link-1 [:entitydb.relations/reverse :note :links 1]) :links)))
     (is (= (dissoc link-1 :notes)
-          (dissoc (get-in link-1-reverse-from-note-1 [:entitydb.relations/reverse :link :notes 1]) :notes)))
+           (dissoc (get-in link-1-reverse-from-note-1 [:entitydb.relations/reverse :link :notes 1]) :notes)))
     (is (= {:id            4
             :title         "Note #4"
             :entitydb/type :note
             :entitydb/id   4}
-          (get-in link-1 [:notes 0 :links 1 :notes 1])))))
+           (get-in link-1 [:notes 0 :links 1 :notes 1])))))
 
 
 (deftest add-to-collection-test
@@ -258,7 +258,7 @@
                                                              (update-in [:posts :edges] (fn [i] (concat [{:cursor "3"
                                                                                                           :node   {:slug  "my-post-5"
                                                                                                                    :title "My Post #5"}}]
-                                                                                                  i))))
+                                                                                                        i))))
 
           with-appended-data                             (edb/insert-entity with-data :user append-data)
           with-prepended-data                            (edb/insert-entity with-data :user prepend-data)
@@ -283,21 +283,21 @@
           expected-reverse-relations-with-appended-data  {:user {:posts {1 #{[:posts :edges 2 :node]}}}}
           expected-reverse-relations-with-prepended-data {:user {:posts {1 #{[:posts :edges 0 :node]}}}}]
       (is (= expected-post-data
-            appended-post-data))
+             appended-post-data))
       (is (= expected-post-data
-            prepended-post-data))
+             prepended-post-data))
       (is (= expected-user-posts-with-appended-data
-            (get-in (edb/get-entity with-appended-data :user 1) [:posts :edges])))
+             (get-in (edb/get-entity with-appended-data :user 1) [:posts :edges])))
       (is (= expected-user-posts-with-prepended-data
-            (get-in (edb/get-entity with-prepended-data :user 1) [:posts :edges])))
+             (get-in (edb/get-entity with-prepended-data :user 1) [:posts :edges])))
       (is (= expected-relations-with-appended-data
-            (get-in with-appended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
+             (get-in with-appended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
       (is (= expected-relations-with-prepended-data
-            (get-in with-prepended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
+             (get-in with-prepended-data [:entitydb/relations (->EntityIdent :user 1) :posts])))
       (is (= expected-reverse-relations-with-appended-data
-            (get-in with-appended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")])))
+             (get-in with-appended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")])))
       (is (= expected-reverse-relations-with-prepended-data
-            (get-in with-prepended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")]))))))
+             (get-in with-prepended-data [:entitydb.relations/reverse (->EntityIdent :post "my-post-5")]))))))
 
 (deftest relation-one-test
   (let [with-schema    (edb/insert-schema {} {:note {:entitydb/relations
@@ -317,7 +317,7 @@
                                   :entitydb/id   1
                                   :entitydb/type :user}}}]
     (is (= expected-store
-          (:entitydb/store with-data)))
+           (:entitydb/store with-data)))
     (let [note-from-store (edb/get-entity with-data :note 1 [(q/include :user)])
           user-from-db    (edb/get-entity with-data :user 1 [(q/reverse-include :note)])
           expected-note   {:id            1
@@ -333,16 +333,16 @@
                            :entitydb/id   1
                            :entitydb/type :user}]
       (is (= note-from-store
-            expected-note))
+             expected-note))
       (is (= (dissoc user-from-db :entitydb.relations/reverse)
-            expected-user))
+             expected-user))
       (is (= (dissoc user-from-db :entitydb.relations/reverse)
-            (:user note-from-store)))
+             (:user note-from-store)))
       (is (= user-from-db
-            (-> expected-user
-                (assoc :entitydb.relations/reverse {:note {:user {1 (-> expected-note
-                                                                        (dissoc :user)
-                                                                        (assoc :user (->EntityIdent :user 1)))}}})))))))
+             (-> expected-user
+                 (assoc :entitydb.relations/reverse {:note {:user {1 (-> expected-note
+                                                                         (dissoc :user)
+                                                                         (assoc :user (->EntityIdent :user 1)))}}})))))))
 
 
 (deftest relation-many-test
@@ -376,27 +376,27 @@
                                   :entitydb/id   2
                                   :entitydb/type :link}}}]
     (is (= expected-store
-          (:entitydb/store with-data)))
+           (:entitydb/store with-data)))
     (is (= (edb/get-entity with-data :link 1)
-          {:id            1
-           :url           "http://google.com"
-           :entitydb/id   1
-           :entitydb/type :link}))
+           {:id            1
+            :url           "http://google.com"
+            :entitydb/id   1
+            :entitydb/type :link}))
     (let [note-from-store (edb/get-entity with-data :note 1 [(q/include :links)])]
       (is (= (dissoc note-from-store :links :user)
-            {:id            1
-             :title         "Note title"
-             :entitydb/id   1
-             :entitydb/type :note}))
-      (is (= (:links note-from-store)
-            [{:id            1
-              :url           "http://google.com"
+             {:id            1
+              :title         "Note title"
               :entitydb/id   1
-              :entitydb/type :link}
-             {:id            2
-              :url           "http://yahoo.com"
-              :entitydb/id   2
-              :entitydb/type :link}])))))
+              :entitydb/type :note}))
+      (is (= (:links note-from-store)
+             [{:id            1
+               :url           "http://google.com"
+               :entitydb/id   1
+               :entitydb/type :link}
+              {:id            2
+               :url           "http://yahoo.com"
+               :entitydb/id   2
+               :entitydb/type :link}])))))
 
 (deftest nested-relations-test
   (let [with-schema               (edb/insert-schema {} (assoc data/note-user-link-schema :link {:entitydb/relations
@@ -418,7 +418,7 @@
                                    :entitydb/id   1
                                    :entitydb/type :user}]
     (is (= expected-user
-          user-from-link-1-relation))))
+           user-from-link-1-relation))))
 
 (deftest tree-relations-test
   (let [with-schema (edb/insert-schema {} {:note {:entitydb/relations
@@ -435,9 +435,9 @@
                                                      :title "Note #3"}]))
         note-1      (edb/get-entity with-data :note 1 [(q/include :notes [(q/include :notes)])])]
     (is (= "Note #2"
-          (get-in note-1 [:notes 0 :title])))
+           (get-in note-1 [:notes 0 :title])))
     (is (= "Note #3"
-          (get-in note-1 [:notes 0 :notes 0 :title])))))
+           (get-in note-1 [:notes 0 :notes 0 :title])))))
 
 (deftest remove-collection-test
   (let [with-schema         (edb/insert-schema {} {})
@@ -471,11 +471,11 @@
                                      (->EntityIdent :note 3)]
                               :meta nil}}]
     (is (= expected-store
-          (:entitydb/store with-deleted-data)))
+           (:entitydb/store with-deleted-data)))
     (is (= expected-named
-          (:entitydb.named/item with-deleted-data)))
+           (:entitydb.named/item with-deleted-data)))
     (is (= expected-collection
-          (:entitydb.named/collection with-deleted-data)))))
+           (:entitydb.named/collection with-deleted-data)))))
 
 (deftest vacuum-collection-test
   (let [with-schema         (edb/insert-schema {} {})
@@ -507,11 +507,11 @@
         with-vacuumed-data  (-> with-deleted-data
                                 (edb/vacuum))]
     (is (= expected-store
-          (:entitydb/store with-vacuumed-data)))
+           (:entitydb/store with-vacuumed-data)))
     (is (= expected-named
-          (:entitydb.named/item with-vacuumed-data)))
+           (:entitydb.named/item with-vacuumed-data)))
     (is (= expected-collection
-          (:entitydb.named/collection with-vacuumed-data)))))
+           (:entitydb.named/collection with-vacuumed-data)))))
 
 (deftest removing-entity-removes-its-id-from-collections-test
   (let [with-schema         (edb/insert-schema {} {})
@@ -528,9 +528,9 @@
                              {:data [(->EntityIdent :note 2)]
                               :meta nil}}]
     (is (= expected-store
-          (:entitydb/store with-deleted-data)))
+           (:entitydb/store with-deleted-data)))
     (is (= expected-collection
-          (:entitydb.named/collection with-deleted-data)))))
+           (:entitydb.named/collection with-deleted-data)))))
 
 (deftest getting-nil-entity-with-relations-should-return-nil-test
   (let [with-schema (edb/insert-schema {} {:user {:entitydb/relations
@@ -619,18 +619,18 @@
                                          (edb/get-entity :note 1)
                                          (update :links (fn [i] (concat [{:id  4
                                                                           :url "http://www.altavista.com"}]
-                                                                  i))))
+                                                                        i))))
         with-prepended-data          (edb/insert-entity with-data :note prepend-data)]
     (is (= expected-store
-          (:entitydb/store with-data)))
+           (:entitydb/store with-data)))
     (is (= {:id 1 :url "http://www.google.com" :entitydb/id 1 :entitydb/type :link}
-          (edb/get-entity with-data :link 1)))
+           (edb/get-entity with-data :link 1)))
     (is (= expected-store-after-append
-          (:entitydb/store with-appended-data)))
+           (:entitydb/store with-appended-data)))
     (is (= expected-store-after-prepend
-          (:entitydb/store with-prepended-data)))
+           (:entitydb/store with-prepended-data)))
     (is (= expected-store-after-remove
-          (:entitydb/store (edb/remove-entity with-data :link 1))))))
+           (:entitydb/store (edb/remove-entity with-data :link 1))))))
 
 (deftest get-relation-path-test
   (let [with-schema                     (edb/insert-schema {} data/note-user-link-schema)
@@ -643,9 +643,9 @@
         expected-note-reverse-relations {(->EntityIdent :user 1) {:note {:user {1 #{[:user]}}}}
                                          (->EntityIdent :link 1) {:note {:links {1 #{[:links 0]}}}}}]
     (is (= expected-note-relations
-          (:entitydb/relations with-data)))
+           (:entitydb/relations with-data)))
     (is (= expected-note-reverse-relations
-          (:entitydb.relations/reverse with-data)))))
+           (:entitydb.relations/reverse with-data)))))
 
 (deftest insert-empty-collection-will-remove-existing-data-test
   (let [with-schema         (edb/insert-schema {} {})
@@ -663,11 +663,11 @@
                               :meta nil}}
         with-removed-data   (edb/insert-collection with-data :note :note/list [])]
     (is (= expected-store
-          (:entitydb/store with-data)))
+           (:entitydb/store with-data)))
     (is (= expected-collection
-          (:entitydb.named/collection with-data)))
+           (:entitydb.named/collection with-data)))
     (is (= expected-store
-          (:entitydb/store with-removed-data)))
+           (:entitydb/store with-removed-data)))
     (is (empty? (get-in (:entitydb.named/collection with-removed-data) [:note/list :data])))))
 
 (deftest insert-empty-collection-to-relation-will-remove-existing-data-test
@@ -698,13 +698,13 @@
                                                                      :title "Note #1"
                                                                      :links []}))]
     (is (= expected-store
-          (:entitydb/store with-inserted-empty-collection)))))
+           (:entitydb/store with-inserted-empty-collection)))))
 
 (deftest resolve-relations-test
   (let [with-schema       (edb/insert-schema {} (assoc
-                                                  data/note-user-link-schema
-                                                  :link
-                                                  {:entitydb/relations {:user :user}}))
+                                                 data/note-user-link-schema
+                                                 :link
+                                                 {:entitydb/relations {:user :user}}))
         with-data         (-> with-schema
                               (edb/insert-entity :note {:id    1
                                                         :title "Note #1"
@@ -730,13 +730,13 @@
                                            :entitydb/type :user}}
         note-1-from-store (edb/get-entity with-data :note 1 [:links :user])]
     (is (= expected-data
-          note-1-from-store))))
+           note-1-from-store))))
 
 (deftest resolve-relations-for-named-test
   (let [with-schema   (edb/insert-schema {} (assoc
-                                              data/note-user-link-schema
-                                              :link
-                                              {:entitydb/relations {:user :user}}))
+                                             data/note-user-link-schema
+                                             :link
+                                             {:entitydb/relations {:user :user}}))
         with-data     (-> with-schema
                           (edb/insert-named :note :note/current {:id    1
                                                                  :title "Note #1"
@@ -762,13 +762,13 @@
                                        :entitydb/type :user}}
         current-note  (edb/get-named with-data :note/current [:links :user])]
     (is (= expected-data
-          current-note))))
+           current-note))))
 
 (deftest resolve-relations-for-collection-test
   (let [with-schema   (edb/insert-schema {} (assoc
-                                              data/note-user-link-schema
-                                              :link
-                                              {:entitydb/relations {:user :user}}))
+                                             data/note-user-link-schema
+                                             :link
+                                             {:entitydb/relations {:user :user}}))
         with-data     (-> with-schema
                           (edb/insert-collection :note :note/list [{:id    1
                                                                     :title "Note #1"
@@ -794,7 +794,7 @@
                                        :entitydb/type :user}}
         current-note  (edb/get-collection with-data :note/list [:links :user])]
     (is (= [expected-data]
-          current-note))))
+           current-note))))
 
 (deftest processor-test
   (let [with-schema          (edb/insert-schema {} {:user {:entitydb/relations
@@ -817,11 +817,11 @@
                                  (get-in [:entitydb.relations/reverse :user :roles])
                                  keys)]
     (is (= "ADMIN"
-          expected-admin-role))
+           expected-admin-role))
     (is (= "EDITOR"
-          expected-editor-role))
+           expected-editor-role))
     (is (= '(1 2)
-          expected-users))))
+           expected-users))))
 
 (def recursive-data
   {:name    "Root"
@@ -888,7 +888,7 @@
     (let [query [:files (q/recur-on :folders)]
           res   (edb/get-entity with-data :folder "Root" query)]
       (is (= res
-            rec-res)))))
+             rec-res)))))
 
 (def recursive-data-2
   {:name    "Foo"
@@ -977,25 +977,25 @@
    :post  {:entitydb/relations {:author :user}}})
 
 (def switch-res
-  [{:id 1,
-    :title "Post 1",
-    :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user},
-    :entitydb/type :post,
+  [{:id 1
+    :title "Post 1"
+    :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user}
+    :entitydb/type :post
     :entitydb/id 1}
-   {:id 2,
-    :title "Post 2",
-    :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user},
-    :entitydb/type :post,
+   {:id 2
+    :title "Post 2"
+    :author {:id 1, :name "Retro", :entitydb/id 1, :entitydb/type :user}
+    :entitydb/type :post
     :entitydb/id 2}
-   {:src "some-source",
-    :title "Image 1",
+   {:src "some-source"
+    :title "Image 1"
     :comments
     [{:id 1, :body "Comment 1", :entitydb/id 1, :entitydb/type :comment}
-     {:id 3,
-      :body "Comment 3",
-      :entitydb/id 3,
-      :entitydb/type :comment}],
-    :entitydb/type :image,
+     {:id 3
+      :body "Comment 3"
+      :entitydb/id 3
+      :entitydb/type :comment}]
+    :entitydb/type :image
     :entitydb/id "some-source"}])
 
 (deftest switch-test
@@ -1029,47 +1029,47 @@
 (deftest custom-merge
   (let [schema      {:user {:entitydb/merge (fn [prev-value next-value]
                                               (let [profiles (or (:profiles next-value)
-                                                               (:profiles prev-value))]
+                                                                 (:profiles prev-value))]
                                                 (-> (merge prev-value next-value)
-                                                  (assoc :profiles profiles))))}}
+                                                    (assoc :profiles profiles))))}}
         with-schema (edb/insert-schema {} schema)
         with-data (-> with-schema
-                    (edb/insert-entity :user {:id 1
-                                              :username "retro"
-                                              :profiles {:twitter {:username "mihaelkonjevic"}}})
-                    (edb/insert-entity :user {:id 1
-                                              :username "retro"
-                                              :profiles nil}))
+                      (edb/insert-entity :user {:id 1
+                                                :username "retro"
+                                                :profiles {:twitter {:username "mihaelkonjevic"}}})
+                      (edb/insert-entity :user {:id 1
+                                                :username "retro"
+                                                :profiles nil}))
         res (edb/get-entity with-data :user 1)]
     (is (= res
-          {:id 1
-           :entitydb/id 1
-           :entitydb/type :user
-           :username "retro"
-           :profiles {:twitter {:username "mihaelkonjevic"}}}))))
+           {:id 1
+            :entitydb/id 1
+            :entitydb/type :user
+            :username "retro"
+            :profiles {:twitter {:username "mihaelkonjevic"}}}))))
 
 (deftest custom-merge-with-relations
   (let [schema      {:user {:entitydb/merge (fn [prev-value next-value]
                                               (let [profiles (or (:profiles next-value)
-                                                               (:profiles prev-value))]
+                                                                 (:profiles prev-value))]
                                                 (-> (merge prev-value next-value)
-                                                  (assoc :profiles profiles))))
+                                                    (assoc :profiles profiles))))
                             :entitydb/relations {:posts {:entitydb.relation/path [:posts :*]
                                                          :entitydb.relation/type :post}}}}
         with-schema (edb/insert-schema {} schema)
         with-data (-> with-schema
-                    (edb/insert-entity :user {:id 1
-                                              :username "retro"
-                                              :posts [{:id 1 :title "Post 1"}]
-                                              :profiles {:twitter {:username "mihaelkonjevic"}}})
-                    (edb/insert-entity :user {:id 1
-                                              :username "retro"
-                                              :profiles nil}))
+                      (edb/insert-entity :user {:id 1
+                                                :username "retro"
+                                                :posts [{:id 1 :title "Post 1"}]
+                                                :profiles {:twitter {:username "mihaelkonjevic"}}})
+                      (edb/insert-entity :user {:id 1
+                                                :username "retro"
+                                                :profiles nil}))
         res (edb/get-entity with-data :user 1)]
     (is (= res
-          {:id 1
-           :entitydb/id 1
-           :entitydb/type :user
-           :posts [(->EntityIdent :post 1)]
-           :username "retro"
-           :profiles {:twitter {:username "mihaelkonjevic"}}}))))
+           {:id 1
+            :entitydb/id 1
+            :entitydb/type :user
+            :posts [(->EntityIdent :post 1)]
+            :username "retro"
+            :profiles {:twitter {:username "mihaelkonjevic"}}}))))

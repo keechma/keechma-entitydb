@@ -30,6 +30,6 @@
   "Creates exception info instance for entitydb anomalies"
   ([message anomaly] (entitydb-ex-info message anomaly {}))
   ([message anomaly props]
-   (ex-info message (assoc props 
+   (ex-info message (assoc props
                            :entitydb.anomalies/category anomaly
                            :entitydb.anomalies/message message))))

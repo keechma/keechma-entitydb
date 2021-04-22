@@ -48,12 +48,12 @@
 
 (defmethod resolve-query :default [_ entity _ _] entity)
 
-(defmethod resolve-query :switch [store entity query _] 
+(defmethod resolve-query :switch [store entity query _]
   (let [entity-type (:entitydb/type entity)
         queries (get-in query [::switch-queries entity-type])]
     (resolve-queries store entity queries)))
 
-(defmethod resolve-query :include [store entity query _] 
+(defmethod resolve-query :include [store entity query _]
   (resolve-relation store entity (:entitydb/relation query) (::subquery query)))
 
 (defmethod resolve-query :reverse [store entity query _]
@@ -101,15 +101,15 @@
                               {}
                               queries')
         include-queries-map (reduce
-                              (fn [acc q]
-                                (if (and (= :include (::type q))
-                                         (not (contains? recur-on-queries-map (:entitydb/relation q))))
-                                  (let [relation (:entitydb/relation q)
-                                        current (get acc relation)]
-                                    (assoc acc relation (update q ::subquery #(concat % (::subquery current)))))
-                                  acc))
-                              {}
-                              queries')
+                             (fn [acc q]
+                               (if (and (= :include (::type q))
+                                        (not (contains? recur-on-queries-map (:entitydb/relation q))))
+                                 (let [relation (:entitydb/relation q)
+                                       current (get acc relation)]
+                                   (assoc acc relation (update q ::subquery #(concat % (::subquery current)))))
+                                 acc))
+                             {}
+                             queries')
         other-queries (filter #(and (not= :recur-on (::type %)) (not= :include (::type %))) queries')]
     (set (concat (vals recur-on-queries-map) (vals include-queries-map) other-queries))))
 

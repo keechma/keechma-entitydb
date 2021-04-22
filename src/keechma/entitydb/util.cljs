@@ -3,7 +3,7 @@
 (defn vec-remove
   "remove elem in coll"
   [pos coll]
-  (vec (concat (subvec (vec coll) 0 pos) 
+  (vec (concat (subvec (vec coll) 0 pos)
                (subvec (vec coll) (inc pos)))))
 
 (defn log

@@ -20,7 +20,7 @@
 (defn mutation-defn
   [path fn-sym]
   `(defn ~fn-sym [store# & args#]
-    (->> (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)
+     (->> (apply ~(edb-fn fn-sym) (get-in store# ~path) args#)
           (assoc-in store# ~path))))
 
 (defn query-defn
