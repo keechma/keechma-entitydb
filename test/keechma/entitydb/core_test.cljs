@@ -1102,3 +1102,70 @@
     (is (thrown? js/Error (edb/insert-named with-schema :user :user/current {:id 1})))
     (is (thrown? js/Error (edb/insert-collection with-schema :user :user/list [{:id 1}])))))
 
+(deftest using-ident-with-named-item
+  (let [with-schema     (edb/insert-schema {} {:note {:entitydb/relations
+                                                      {:user :user}}})
+        db      (edb/insert-named with-schema :note :note/current {:id 1 :title "Note title"
+                                                                   :user {:id 1 :name "Foo"}})
+        entity-ident (edb/get-ident-for-named db :note/current)
+        expected-entity-ident (->EntityIdent :note 1)
+        entity (edb/get-entity-from-ident db entity-ident)
+        expected-entity  {:id            1
+                          :title         "Note title"
+                          :entitydb/id   1
+                          :entitydb/type :note
+                          :user (->EntityIdent :user 1)}
+         entity-with-rel (edb/get-entity-from-ident db entity-ident [:user])
+         expected-entity-with-rel {:id            1
+                                   :title         "Note title"
+                                   :entitydb/id   1
+                                   :entitydb/type :note
+                                   :user {:id 1
+                                          :name "Foo"
+                                          :entitydb/id 1
+                                          :entitydb/type :user}}]
+    (is (= entity-ident expected-entity-ident))
+    (is (= entity expected-entity))
+    (is (= entity-with-rel expected-entity-with-rel))))
+
+
+(deftest using-idents-with-collection
+  (let [with-schema     (edb/insert-schema {} {:note {:entitydb/relations
+                                                      {:user :user}}})
+        db      (edb/insert-collection with-schema :note :note/list [{:id 1 :title "Note title"
+                                                                      :user {:id 1 :name "Foo"}}
+                                                                     {:id 2 :title "Note title #2"
+                                                                      :user {:id 2 :name "Bar"}}])
+        entity-idents (edb/get-idents-for-collection db :note/list)
+        expected-entity-idents [(->EntityIdent :note 1)(->EntityIdent :note 2)]
+        entities (edb/get-entities-from-idents db entity-idents)
+        expected-entities [{:id            1
+                            :title         "Note title"
+                            :entitydb/id   1
+                            :entitydb/type :note
+                            :user (->EntityIdent :user 1)}
+                           {:id            2
+                            :title         "Note title #2"
+                            :entitydb/id   2
+                            :entitydb/type :note
+                            :user (->EntityIdent :user 2)}]
+        entities-with-rel (edb/get-entities-from-idents db entity-idents [:user])
+        expected-entities-with-rel [{:id            1
+                                   :title         "Note title"
+                                   :entitydb/id   1
+                                   :entitydb/type :note
+                                   :user {:id 1
+                                          :name "Foo"
+                                          :entitydb/id 1
+                                          :entitydb/type :user}}
+                                  {:id            2
+                                   :title         "Note title #2"
+                                   :entitydb/id   2
+                                   :entitydb/type :note
+                                   :user {:id 2
+                                          :name "Bar"
+                                          :entitydb/id 2
+                                          :entitydb/type :user}}]]
+    (is (= entity-idents expected-entity-idents))
+    (is (= entities expected-entities))
+    (is (= entities-with-rel expected-entities-with-rel))))
