@@ -338,6 +338,20 @@
       #(get-entity store (:type %) (:id %) query)
       entity-idents))))
 
+(defn get-ident-for-named [store entity-name]
+  (get-in store [:entitydb.named/item entity-name :data]))
+
+(defn get-idents-for-collection [store collection-name]
+  (get-in store [:entitydb.named/collection collection-name :data]))
+
+(defn get-entity-from-ident
+  ([store entity-ident] (get-entity-from-ident store entity-ident nil))
+  ([store entity-ident query] (get-entity store (:type entity-ident) (:id entity-ident) query)))
+
+(defn get-entities-from-idents
+  ([store entity-idents] (get-entities-from-idents store entity-idents nil))
+  ([store entity-idents query] (mapv #(get-entity store (:type %) (:id %) query) entity-idents)))
+
 (defn remove-named [store entity-name]
   (dissoc-in store [:entitydb.named/item entity-name]))
 
