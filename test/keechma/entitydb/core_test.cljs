@@ -477,6 +477,66 @@
     (is (= expected-collection
            (:entitydb.named/collection with-deleted-data)))))
 
+(deftest append-collection-test
+  (let [with-schema         (edb/insert-schema {} {})
+        with-data           (-> with-schema
+                                (edb/insert-collection :note :note/latest [{:id 1}
+                                                                           {:id 2}])
+                                (edb/append-collection :note :note/latest [{:id 3}
+                                                                           {:id 4}]))
+        expected-store      {:note {1 {:id            1
+                                       :entitydb/id   1
+                                       :entitydb/type :note}
+                                    2 {:id            2
+                                       :entitydb/id   2
+                                       :entitydb/type :note}
+                                    3 {:id            3
+                                       :entitydb/id   3
+                                       :entitydb/type :note}
+                                    4 {:id            4
+                                       :entitydb/id   4
+                                       :entitydb/type :note}}}
+        expected-collection {:note/latest
+                             {:data [(->EntityIdent :note 1)
+                                     (->EntityIdent :note 2)
+                                     (->EntityIdent :note 3)
+                                     (->EntityIdent :note 4)]
+                              :meta nil}}]
+    (is (= expected-store
+           (:entitydb/store with-data)))
+    (is (= expected-collection
+           (:entitydb.named/collection with-data)))))
+
+(deftest prepend-collection-test
+  (let [with-schema         (edb/insert-schema {} {})
+        with-data           (-> with-schema
+                                (edb/insert-collection :note :note/latest [{:id 1}
+                                                                           {:id 2}])
+                                (edb/prepend-collection :note :note/latest [{:id 3}
+                                                                            {:id 4}]))
+        expected-store      {:note {1 {:id            1
+                                       :entitydb/id   1
+                                       :entitydb/type :note}
+                                    2 {:id            2
+                                       :entitydb/id   2
+                                       :entitydb/type :note}
+                                    3 {:id            3
+                                       :entitydb/id   3
+                                       :entitydb/type :note}
+                                    4 {:id            4
+                                       :entitydb/id   4
+                                       :entitydb/type :note}}}
+        expected-collection {:note/latest
+                             {:data [(->EntityIdent :note 3)
+                                     (->EntityIdent :note 4)
+                                     (->EntityIdent :note 1)
+                                     (->EntityIdent :note 2)]
+                              :meta nil}}]
+    (is (= expected-store
+           (:entitydb/store with-data)))
+    (is (= expected-collection
+           (:entitydb.named/collection with-data)))))
+
 (deftest vacuum-collection-test
   (let [with-schema         (edb/insert-schema {} {})
         with-data           (-> with-schema
@@ -1115,15 +1175,15 @@
                           :entitydb/id   1
                           :entitydb/type :note
                           :user (->EntityIdent :user 1)}
-         entity-with-rel (edb/get-entity-from-ident db entity-ident [:user])
-         expected-entity-with-rel {:id            1
-                                   :title         "Note title"
-                                   :entitydb/id   1
-                                   :entitydb/type :note
-                                   :user {:id 1
-                                          :name "Foo"
-                                          :entitydb/id 1
-                                          :entitydb/type :user}}]
+        entity-with-rel (edb/get-entity-from-ident db entity-ident [:user])
+        expected-entity-with-rel {:id            1
+                                  :title         "Note title"
+                                  :entitydb/id   1
+                                  :entitydb/type :note
+                                  :user {:id 1
+                                         :name "Foo"
+                                         :entitydb/id 1
+                                         :entitydb/type :user}}]
     (is (= entity-ident expected-entity-ident))
     (is (= entity expected-entity))
     (is (= entity-with-rel expected-entity-with-rel))))
@@ -1137,7 +1197,7 @@
                                                                      {:id 2 :title "Note title #2"
                                                                       :user {:id 2 :name "Bar"}}])
         entity-idents (edb/get-idents-for-collection db :note/list)
-        expected-entity-idents [(->EntityIdent :note 1)(->EntityIdent :note 2)]
+        expected-entity-idents [(->EntityIdent :note 1) (->EntityIdent :note 2)]
         entities (edb/get-entities-from-idents db entity-idents)
         expected-entities [{:id            1
                             :title         "Note title"
@@ -1151,21 +1211,21 @@
                             :user (->EntityIdent :user 2)}]
         entities-with-rel (edb/get-entities-from-idents db entity-idents [:user])
         expected-entities-with-rel [{:id            1
-                                   :title         "Note title"
-                                   :entitydb/id   1
-                                   :entitydb/type :note
-                                   :user {:id 1
-                                          :name "Foo"
-                                          :entitydb/id 1
-                                          :entitydb/type :user}}
-                                  {:id            2
-                                   :title         "Note title #2"
-                                   :entitydb/id   2
-                                   :entitydb/type :note
-                                   :user {:id 2
-                                          :name "Bar"
-                                          :entitydb/id 2
-                                          :entitydb/type :user}}]]
+                                     :title         "Note title"
+                                     :entitydb/id   1
+                                     :entitydb/type :note
+                                     :user {:id 1
+                                            :name "Foo"
+                                            :entitydb/id 1
+                                            :entitydb/type :user}}
+                                    {:id            2
+                                     :title         "Note title #2"
+                                     :entitydb/id   2
+                                     :entitydb/type :note
+                                     :user {:id 2
+                                            :name "Bar"
+                                            :entitydb/id 2
+                                            :entitydb/type :user}}]]
     (is (= entity-idents expected-entity-idents))
     (is (= entities expected-entities))
     (is (= entities-with-rel expected-entities-with-rel))))

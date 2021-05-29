@@ -306,23 +306,47 @@
                {:data (entity->entity-ident entity)
                 :meta named-meta}))))
 
+(defn insert-entities-for-collection [store entity-type data]
+  (reduce
+   (fn [{:keys [store entities]} item]
+     (let [{:keys [store entity]} (insert* store entity-type item)]
+       {:store    store
+        :entities (conj entities entity)}))
+   {:store    store
+    :entities []}
+   data))
+
 (defn insert-collection
   ([store entity-type collection-name data]
    (insert-collection store entity-type collection-name data nil))
   ([store entity-type collection-name data collection-meta]
-   (let [{:keys [store entities]}
-         (reduce
-          (fn [{:keys [store entities]} item]
-            (let [{:keys [store entity]} (insert* store entity-type item)]
-              {:store    store
-               :entities (conj entities entity)}))
-          {:store    store
-           :entities []}
-          data)]
+   (let [{:keys [store entities]} (insert-entities-for-collection store entity-type data)]
      (assoc-in store
                [:entitydb.named/collection collection-name]
                {:data (map entity->entity-ident entities)
                 :meta collection-meta}))))
+
+(defn append-collection
+  ([store entity-type collection-name data]
+   (append-collection store entity-type collection-name data ::inherit))
+  ([store entity-type collection-name data collection-meta]
+   (let [{:keys [store entities]} (insert-entities-for-collection store entity-type data)]
+     (update-in store
+                [:entitydb.named/collection collection-name]
+                (fn [{:keys [data meta]}]
+                  {:data (concat data (map entity->entity-ident entities))
+                   :meta (if (= ::inherit collection-meta) meta collection-meta)})))))
+
+(defn prepend-collection
+  ([store entity-type collection-name data]
+   (prepend-collection store entity-type collection-name data ::inherit))
+  ([store entity-type collection-name data collection-meta]
+   (let [{:keys [store entities]} (insert-entities-for-collection store entity-type data)]
+     (update-in store
+                [:entitydb.named/collection collection-name]
+                (fn [{:keys [data meta]}]
+                  {:data (concat (map entity->entity-ident entities) data)
+                   :meta (if (= ::inherit collection-meta) meta collection-meta)})))))
 
 (defn get-named
   ([store entity-name] (get-named store entity-name nil))
